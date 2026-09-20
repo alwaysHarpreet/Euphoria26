@@ -1,0 +1,5 @@
+title,description,is_active
+"Autonomous Traffic Control System","Develop an edge-AI system to optimize traffic signal timings in real time based on vehicle density, emergency vehicle preemption, and pedestrian flow.",true
+"Decentralized Identity for Healthcare","Create a verifiable credential system using decentralized identifiers (DIDs) to allow patients to securely store and share health records.",true
+"Smart Waste Sorter & Tracker","Build a computer vision-powered smart waste bin and route optimization engine for municipal collection trucks.",true
+"Offline Emergency Mesh Network","Design a resilient peer-to-peer mobile communications network that functions without internet or cellular coverage during natural disasters.",true

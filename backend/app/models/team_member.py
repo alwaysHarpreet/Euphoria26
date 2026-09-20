@@ -34,9 +34,24 @@ class TeamMember(Base):
         nullable=False,
     )
 
-    department: Mapped[str] = mapped_column(
+    registration_number: Mapped[str | None] = mapped_column(
         String(100),
-        nullable=False,
+        nullable=True,
+    )
+
+    email: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    role: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    department: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(

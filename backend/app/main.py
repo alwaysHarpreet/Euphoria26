@@ -102,7 +102,7 @@ app.include_router(admin_teams.router)
 app.include_router(leaderboard.router)
 app.include_router(repository_feedback.router)
 app.include_router(admin_problem_selection.router)
-app.include_router(admin_problem_selection.router)
+
 
 from datetime import datetime, timezone
 from fastapi import WebSocket, WebSocketDisconnect

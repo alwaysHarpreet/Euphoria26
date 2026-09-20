@@ -74,6 +74,7 @@ def get_my_team(
 
     return {
         "id": team.id,
+        "team_code": team.team_code,
         "team_name": team.team_name,
         "college_name": team.college_name,
         "leader_name": team.leader_name,
@@ -137,7 +138,11 @@ def add_team_member(
         name=member_data.name.strip(),
         college=member_data.college.strip(),
         year=member_data.year.strip(),
-        department=member_data.department.strip(),
+        department=(
+            member_data.department.strip()
+            if member_data.department
+            else None
+        ),
     )
 
     db.add(member)
@@ -190,24 +195,32 @@ def set_team_members(
             detail="A team must have either 4 or 5 members.",
         )
 
-    # Remove existing members
     existing_members = db.scalars(
-        select(TeamMember).where(TeamMember.team_id == current_team.id)
+        select(TeamMember).where(
+            TeamMember.team_id == current_team.id
+        )
     ).all()
+
     for existing in existing_members:
         db.delete(existing)
 
     db.flush()
 
     new_members = []
+
     for item in members_data:
         member = TeamMember(
             team_id=current_team.id,
             name=item.name.strip(),
             college=item.college.strip(),
             year=item.year.strip(),
-            department=item.department.strip(),
+            department=(
+                item.department.strip()
+                if item.department
+                else None
+            ),
         )
+
         db.add(member)
         new_members.append(member)
 
@@ -232,14 +245,12 @@ def upload_group_photo(
     current_team: Team = Depends(get_current_team),
     db: Session = Depends(get_db),
 ):
-    # Validate that a file was actually provided
     if not photo.filename:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Please select a group photo.",
         )
 
-    # Validate image type
     if not photo.content_type or not photo.content_type.startswith(
         "image/"
     ):
@@ -248,7 +259,6 @@ def upload_group_photo(
             detail="Only image files are allowed.",
         )
 
-    # Maximum file size: 5 MB
     max_file_size = 5 * 1024 * 1024
 
     file_content = photo.file.read()
@@ -259,7 +269,6 @@ def upload_group_photo(
             detail="Image size must be 5 MB or less.",
         )
 
-    # Create uploads/group_photos directory
     upload_directory = (
         Path(__file__).resolve().parents[2]
         / "uploads"
@@ -271,16 +280,13 @@ def upload_group_photo(
         exist_ok=True,
     )
 
-    # Get original extension
     original_extension = Path(
         photo.filename
     ).suffix.lower()
 
-    # Fallback extension
     if not original_extension:
         original_extension = ".jpg"
 
-    # Generate unique filename
     filename = (
         f"team_{current_team.id}_"
         f"{uuid4().hex}"
@@ -289,11 +295,9 @@ def upload_group_photo(
 
     file_path = upload_directory / filename
 
-    # Save new photo
     with open(file_path, "wb") as file:
         file.write(file_content)
 
-    # Remove old photo if one exists
     if current_team.group_photo_path:
         old_file_path = (
             Path(__file__).resolve().parents[2]
@@ -307,7 +311,6 @@ def upload_group_photo(
             except OSError:
                 pass
 
-    # Store relative path in database
     relative_path = (
         f"group_photos/{filename}"
     )

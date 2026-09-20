@@ -14,7 +14,16 @@ if TYPE_CHECKING:
 class Team(Base):
     __tablename__ = "teams"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+    )
+
+    team_code: Mapped[str | None] = mapped_column(
+        String(100),
+        unique=True,
+        nullable=True,
+        index=True,
+    )
 
     team_name: Mapped[str] = mapped_column(
         String(100),
@@ -69,7 +78,6 @@ class Team(Base):
         nullable=False,
     )
 
-    # Relationships
     members: Mapped[list["TeamMember"]] = relationship(
         "TeamMember",
         cascade="all, delete-orphan",

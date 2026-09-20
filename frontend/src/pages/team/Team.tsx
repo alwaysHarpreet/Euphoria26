@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  Building2,
   CheckCircle2,
   GraduationCap,
   Hash,
@@ -27,12 +26,16 @@ interface TeamMember {
   name: string
   college: string
   year: string
-  department: string
+  registration_number: string | null
+  email: string | null
+  role: string | null
+  department: string | null
   created_at: string
 }
 
 interface TeamData {
   id: number
+  team_code: string
   team_name: string
   college_name: string
   leader_name: string
@@ -43,7 +46,16 @@ interface TeamData {
   repository_url: string | null
   repository_submitted_at: string | null
   members: TeamMember[]
+  feedback: Feedback | null
   created_at: string
+}
+
+interface Feedback {
+  id: number
+  team_id: number
+  feedback: string
+  created_at: string
+  updated_at: string
 }
 
 export default function Team() {
@@ -127,6 +139,7 @@ export default function Team() {
 
             <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
               <CheckCircle2 size={13} className="text-gray-300" />
+
               <span className="text-[11px] font-medium text-gray-400">
                 Registered
               </span>
@@ -139,10 +152,10 @@ export default function Team() {
         </div>
 
         {/* Team overview */}
-        <div className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr]">
+        <div className="grid items-start gap-5 lg:grid-cols-[1.4fr_0.6fr]">
           {/* Team Profile */}
-          <section className="rounded-2xl border border-white/10 bg-[#111827]">
-            <div className="border-b border-white/10 p-6">
+          <section className="h-fit self-start rounded-2xl border border-white/10 bg-[#111827]">
+            <div className="border-b border-white/10 px-6 py-5">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.05]">
                   <Users size={19} className="text-gray-300" />
@@ -161,18 +174,10 @@ export default function Team() {
             </div>
 
             <div className="divide-y divide-white/[0.06]">
-              <InfoRow icon={Hash} label="Team ID" value={`TEAM-${team.id}`} />
-
               <InfoRow
-                icon={Users}
-                label="Team Name"
-                value={team.team_name}
-              />
-
-              <InfoRow
-                icon={Building2}
-                label="Primary College"
-                value={team.college_name}
+                icon={Hash}
+                label="Team ID"
+                value={team.team_code}
               />
 
               <InfoRow
@@ -183,7 +188,7 @@ export default function Team() {
 
               <InfoRow
                 icon={Mail}
-                label="Shared Login Email"
+                label="Login Email"
                 value={team.leader_email}
               />
             </div>
@@ -200,10 +205,10 @@ export default function Team() {
                 <img
                   src={team.group_photo_url}
                   alt={`${team.team_name} group`}
-                  className="h-32 w-32 rounded-2xl object-cover"
+                  className="h-48 w-48 rounded-2xl object-cover"
                 />
               ) : (
-                <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-white text-2xl font-bold text-[#000000]">
+                <div className="flex h-48 w-48 items-center justify-center rounded-2xl bg-white text-2xl font-bold text-[#000000]">
                   {team.team_name
                     .split(' ')
                     .map((word) => word[0])
@@ -217,12 +222,9 @@ export default function Team() {
                 {team.team_name}
               </h2>
 
-              <p className="mt-1 text-xs text-gray-500">
-                {team.college_name}
-              </p>
-
               <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5">
                 <span className="h-1.5 w-1.5 rounded-full bg-white" />
+
                 <span className="text-xs text-gray-400">
                   Active Team
                 </span>
@@ -235,7 +237,7 @@ export default function Team() {
         {/* TEAM MEMBERS SECTION (4 TO 5 MEMBERS) */}
         {/* ========================================================= */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#111827]">
-          <div className="border-b border-white/10 p-6 flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-white/10 p-6">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.05]">
                 <GraduationCap size={18} className="text-gray-300" />
@@ -259,7 +261,9 @@ export default function Team() {
 
           <div className="p-6">
             {!team.members || team.members.length === 0 ? (
-              <p className="text-sm text-gray-500">No members registered yet.</p>
+              <p className="text-sm text-gray-500">
+                No members registered yet.
+              </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {team.members.map((member, index) => (
@@ -278,15 +282,25 @@ export default function Team() {
                         </span>
                       </div>
 
-                      <h3 className="mt-3 text-base font-semibold text-white">
+                      <div className="mt-3 flex items-center justify-between">
+                        <span className="text-xs font-medium text-gray-400">
+                          {member.role}
+                        </span>
+                      </div>
+
+                      <h3 className="mt-2 text-base font-semibold text-white">
                         {member.name}
                       </h3>
 
-                      <p className="mt-1 text-xs font-medium text-gray-300">
-                        {member.department}
+                      <p className="mt-1 text-xs text-gray-300">
+                        {member.email}
                       </p>
 
-                      <p className="mt-2 text-xs text-[#7183a0] leading-relaxed">
+                      <p className="mt-1 text-xs text-gray-400">
+                        Reg. No. {member.registration_number}
+                      </p>
+
+                      <p className="mt-2 text-xs leading-relaxed text-[#7183a0]">
                         {member.college}
                       </p>
                     </div>
@@ -296,7 +310,6 @@ export default function Team() {
             )}
           </div>
         </section>
-
 
         {/* Selected problem */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#111827]">
@@ -331,6 +344,7 @@ export default function Team() {
 
                 <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5">
                   <CheckCircle2 size={14} className="text-gray-300" />
+
                   <span className="text-xs text-gray-400">
                     Problem selected
                   </span>
@@ -362,7 +376,7 @@ interface InfoRowProps {
 
 function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
   return (
-    <div className="flex items-center gap-4 px-6 py-4">
+    <div className="flex items-center gap-4 px-6 py-3.5">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-gray-500">
         <Icon size={17} strokeWidth={1.8} />
       </div>
@@ -372,7 +386,9 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
           {label}
         </p>
 
-        <p className="mt-1 truncate text-sm text-gray-300">{value}</p>
+        <p className="mt-1 truncate text-sm text-gray-300">
+          {value}
+        </p>
       </div>
     </div>
   )

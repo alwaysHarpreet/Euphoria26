@@ -1,13 +1,43 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class TeamMemberBase(BaseModel):
-    name: str = Field(..., min_length=2, max_length=100)
-    college: str = Field(..., min_length=2, max_length=150)
-    year: str = Field(..., min_length=1, max_length=20)
-    department: str = Field(..., min_length=2, max_length=100)
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=100,
+    )
+
+    college: str = Field(
+        ...,
+        min_length=2,
+        max_length=150,
+    )
+
+    year: str = Field(
+        ...,
+        min_length=1,
+        max_length=20,
+    )
+
+    registration_number: str | None = Field(
+        default=None,
+        max_length=100,
+    )
+
+    email: EmailStr | None = None
+
+    role: str | None = Field(
+        default=None,
+        max_length=50,
+    )
+
+    department: str | None = Field(
+        default=None,
+        max_length=100,
+    )
 
 
 class TeamMemberCreate(TeamMemberBase):

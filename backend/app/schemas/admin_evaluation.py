@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 EvaluationStatus = Literal["pending", "submitted"]
@@ -22,3 +22,8 @@ class AdminEvaluationResponse(BaseModel):
     status: EvaluationStatus
     created_at: datetime
     updated_at: datetime
+
+
+class AdminEvaluationUpdate(BaseModel):
+    score: int = Field(..., ge=0, le=100)
+    remarks: str | None = None

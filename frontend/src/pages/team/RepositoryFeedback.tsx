@@ -55,7 +55,8 @@ export default function RepositoryFeedback() {
   const [rating, setRating] = useState<number>(5)
   const [hoverRating, setHoverRating] = useState<number | null>(null)
   const [comments, setComments] = useState('')
-  const [currentFeedback, setCurrentFeedback] = useState<FeedbackData | null>(null)
+  const [currentFeedback, setCurrentFeedback] =
+    useState<FeedbackData | null>(null)
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false)
   const [feedbackSuccess, setFeedbackSuccess] = useState('')
   const [feedbackError, setFeedbackError] = useState('')
@@ -65,6 +66,7 @@ export default function RepositoryFeedback() {
   const fetchData = async () => {
     try {
       setLoading(true)
+
       const [featuresRes, repoRes, feedbackRes] = await Promise.all([
         api.get<FeatureStatus>('/features/status'),
         api.get<RepositoryData>('/teams/me/repository'),
@@ -73,6 +75,7 @@ export default function RepositoryFeedback() {
 
       setFeatures(featuresRes.data)
       setCurrentRepo(repoRes.data)
+
       if (repoRes.data.repository_url) {
         setRepoUrl(repoRes.data.repository_url)
       }
@@ -83,7 +86,10 @@ export default function RepositoryFeedback() {
         setComments(feedbackRes.data.comments)
       }
     } catch (err: any) {
-      console.error('Failed to load repository & feedback data:', err)
+      console.error(
+        'Failed to load repository & feedback data:',
+        err,
+      )
     } finally {
       setLoading(false)
     }
@@ -94,33 +100,50 @@ export default function RepositoryFeedback() {
   }, [])
 
   // Handle Repository submission
-  const handleRepositorySubmit = async (e: React.FormEvent) => {
+  const handleRepositorySubmit = async (
+    e: React.FormEvent,
+  ) => {
     e.preventDefault()
+
     setRepoError('')
     setRepoSuccess('')
 
     const trimmedUrl = repoUrl.trim()
+
     if (!trimmedUrl) {
       setRepoError('Please enter a valid repository URL.')
       return
     }
 
-    if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
-      setRepoError('Repository URL must begin with http:// or https://')
+    if (
+      !trimmedUrl.startsWith('http://') &&
+      !trimmedUrl.startsWith('https://')
+    ) {
+      setRepoError(
+        'Repository URL must begin with http:// or https://',
+      )
       return
     }
 
     try {
       setRepoSubmitting(true)
-      const response = await api.post<RepositoryData>('/teams/me/repository', {
-        repository_url: trimmedUrl,
-      })
+
+      const response =
+        await api.post<RepositoryData>(
+          '/teams/me/repository',
+          {
+            repository_url: trimmedUrl,
+          },
+        )
 
       setCurrentRepo(response.data)
-      setRepoSuccess('Repository URL submitted successfully!')
+      setRepoSuccess(
+        'Repository URL submitted successfully!',
+      )
     } catch (err: any) {
       setRepoError(
-        err?.response?.data?.detail || 'Failed to submit repository URL.',
+        err?.response?.data?.detail ||
+          'Failed to submit repository URL.',
       )
     } finally {
       setRepoSubmitting(false)
@@ -128,29 +151,44 @@ export default function RepositoryFeedback() {
   }
 
   // Handle Feedback submission
-  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+  const handleFeedbackSubmit = async (
+    e: React.FormEvent,
+  ) => {
     e.preventDefault()
+
     setFeedbackError('')
     setFeedbackSuccess('')
 
     const trimmedComments = comments.trim()
+
     if (trimmedComments.length < 3) {
-      setFeedbackError('Please provide at least a short comment.')
+      setFeedbackError(
+        'Please provide at least a short comment.',
+      )
       return
     }
 
     try {
       setFeedbackSubmitting(true)
-      const response = await api.post<FeedbackData>('/teams/me/feedback', {
-        rating,
-        comments: trimmedComments,
-      })
+
+      const response =
+        await api.post<FeedbackData>(
+          '/teams/me/feedback',
+          {
+            rating,
+            comments: trimmedComments,
+          },
+        )
 
       setCurrentFeedback(response.data)
-      setFeedbackSuccess('Thank you! Your feedback has been submitted successfully.')
+
+      setFeedbackSuccess(
+        'Thank you! Your feedback has been submitted successfully.',
+      )
     } catch (err: any) {
       setFeedbackError(
-        err?.response?.data?.detail || 'Failed to submit feedback.',
+        err?.response?.data?.detail ||
+          'Failed to submit feedback.',
       )
     } finally {
       setFeedbackSubmitting(false)
@@ -172,6 +210,12 @@ export default function RepositoryFeedback() {
     )
   }
 
+  const repositorySubmitted = Boolean(
+    currentRepo.repository_url,
+  )
+
+  const feedbackSubmitted = Boolean(currentFeedback)
+
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1400px]">
@@ -186,7 +230,8 @@ export default function RepositoryFeedback() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#7183a0]">
-            Submit your project repository link and share your hackathon experience when activated by organizers.
+            Submit your project repository link and share your
+            hackathon experience when activated by organizers.
           </p>
         </div>
 
@@ -208,6 +253,7 @@ export default function RepositoryFeedback() {
                     <p className="text-xs font-medium uppercase tracking-wider text-[#64748b]">
                       Project Deliverable
                     </p>
+
                     <h2 className="mt-0.5 text-lg font-semibold text-white">
                       Repository Submission
                     </h2>
@@ -215,9 +261,14 @@ export default function RepositoryFeedback() {
                 </div>
 
                 {/* Status Indicator */}
-                {features.repository_active ? (
+                {repositorySubmitted ? (
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <CheckCircle2 size={12} />
+                    Completed
+                  </div>
+                ) : features.repository_active ? (
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
                     Active
                   </div>
                 ) : (
@@ -228,11 +279,14 @@ export default function RepositoryFeedback() {
                 )}
               </div>
 
-              {/* Description / Alerts */}
+              {/* Description */}
               <p className="mt-5 text-sm leading-6 text-[#7183a0]">
-                Submit your public GitHub or Git repository link containing your code, README, and project assets for evaluation.
+                Submit your public GitHub or Git repository
+                link containing your code, README, and project
+                assets for evaluation.
               </p>
 
+              {/* Errors */}
               {repoError && (
                 <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-300">
                   <AlertCircle size={16} className="shrink-0" />
@@ -240,16 +294,45 @@ export default function RepositoryFeedback() {
                 </div>
               )}
 
+              {/* Success */}
               {repoSuccess && (
                 <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3 text-sm text-emerald-200">
-                  <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+                  <CheckCircle2
+                    size={16}
+                    className="shrink-0 text-emerald-400"
+                  />
                   <span>{repoSuccess}</span>
                 </div>
               )}
 
-              {/* Form or Inactive Notice */}
-              {features.repository_active ? (
-                <form onSubmit={handleRepositorySubmit} className="mt-6 space-y-4">
+              {/* Submitted State */}
+              {repositorySubmitted ? (
+                <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.05] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/[0.08]">
+                      <CheckCircle2
+                        size={18}
+                        className="text-emerald-400"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-emerald-300">
+                        Repository submitted
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-gray-500">
+                        Your repository submission is complete
+                        and can no longer be edited.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : features.repository_active ? (
+                <form
+                  onSubmit={handleRepositorySubmit}
+                  className="mt-6 space-y-4"
+                >
                   <div>
                     <label
                       htmlFor="repo-url"
@@ -263,7 +346,9 @@ export default function RepositoryFeedback() {
                       type="url"
                       placeholder="https://github.com/organization/project-name"
                       value={repoUrl}
-                      onChange={(e) => setRepoUrl(e.target.value)}
+                      onChange={(e) =>
+                        setRepoUrl(e.target.value)
+                      }
                       required
                       className="mt-2 w-full rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/30"
                     />
@@ -282,19 +367,27 @@ export default function RepositoryFeedback() {
                     ) : (
                       <>
                         <Send size={15} />
-                        {currentRepo.repository_url ? 'Update Repository' : 'Submit Repository'}
+                        Submit Repository
                       </>
                     )}
                   </button>
                 </form>
               ) : (
                 <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-5 text-center">
-                  <Lock size={20} className="mx-auto text-gray-500" />
+                  <Lock
+                    size={20}
+                    className="mx-auto text-gray-500"
+                  />
+
                   <p className="mt-2 text-sm font-medium text-gray-300">
-                    Repository submission is currently unavailable
+                    Repository submission is currently
+                    unavailable
                   </p>
+
                   <p className="mt-1 text-xs text-gray-500">
-                    The organizers have not yet opened code submissions. You will be able to submit your link once activated.
+                    The organizers have not yet opened code
+                    submissions. You will be able to submit
+                    your link once activated.
                   </p>
                 </div>
               )}
@@ -329,7 +422,10 @@ export default function RepositoryFeedback() {
 
                 {currentRepo.repository_submitted_at && (
                   <p className="mt-2 text-[11px] text-gray-500">
-                    Last updated: {new Date(currentRepo.repository_submitted_at).toLocaleString()}
+                    Submitted:{' '}
+                    {new Date(
+                      currentRepo.repository_submitted_at,
+                    ).toLocaleString()}
                   </p>
                 )}
               </div>
@@ -352,6 +448,7 @@ export default function RepositoryFeedback() {
                     <p className="text-xs font-medium uppercase tracking-wider text-[#64748b]">
                       Participant Voice
                     </p>
+
                     <h2 className="mt-0.5 text-lg font-semibold text-white">
                       Hackathon Feedback
                     </h2>
@@ -359,9 +456,14 @@ export default function RepositoryFeedback() {
                 </div>
 
                 {/* Status Indicator */}
-                {features.feedback_active ? (
+                {feedbackSubmitted ? (
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-300">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <CheckCircle2 size={12} />
+                    Completed
+                  </div>
+                ) : features.feedback_active ? (
+                  <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1 text-xs font-medium text-emerald-300">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
                     Active
                   </div>
                 ) : (
@@ -372,11 +474,14 @@ export default function RepositoryFeedback() {
                 )}
               </div>
 
-              {/* Description / Alerts */}
+              {/* Description */}
               <p className="mt-5 text-sm leading-6 text-[#7183a0]">
-                Rate your overall hackathon experience and share suggestions with the organizing committee.
+                Rate your overall hackathon experience and
+                share suggestions with the organizing
+                committee.
               </p>
 
+              {/* Errors */}
               {feedbackError && (
                 <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3 text-sm text-red-300">
                   <AlertCircle size={16} className="shrink-0" />
@@ -384,16 +489,45 @@ export default function RepositoryFeedback() {
                 </div>
               )}
 
+              {/* Success */}
               {feedbackSuccess && (
                 <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3 text-sm text-emerald-200">
-                  <CheckCircle2 size={16} className="shrink-0 text-emerald-400" />
+                  <CheckCircle2
+                    size={16}
+                    className="shrink-0 text-emerald-400"
+                  />
                   <span>{feedbackSuccess}</span>
                 </div>
               )}
 
-              {/* Form or Inactive Notice */}
-              {features.feedback_active ? (
-                <form onSubmit={handleFeedbackSubmit} className="mt-6 space-y-5">
+              {/* Submitted State */}
+              {feedbackSubmitted ? (
+                <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.05] p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-400/[0.08]">
+                      <CheckCircle2
+                        size={18}
+                        className="text-emerald-400"
+                      />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-emerald-300">
+                        Feedback submitted
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-gray-500">
+                        Your feedback has been recorded and
+                        can no longer be edited.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : features.feedback_active ? (
+                <form
+                  onSubmit={handleFeedbackSubmit}
+                  className="mt-6 space-y-5"
+                >
                   {/* Rating Stars */}
                   <div>
                     <label className="block text-xs font-medium uppercase tracking-wider text-gray-400">
@@ -403,15 +537,23 @@ export default function RepositoryFeedback() {
                     <div className="mt-2.5 flex items-center gap-2">
                       {[1, 2, 3, 4, 5].map((star) => {
                         const isFilled =
-                          (hoverRating !== null ? hoverRating : rating) >= star
+                          (hoverRating !== null
+                            ? hoverRating
+                            : rating) >= star
 
                         return (
                           <button
                             key={star}
                             type="button"
-                            onClick={() => setRating(star)}
-                            onMouseEnter={() => setHoverRating(star)}
-                            onMouseLeave={() => setHoverRating(null)}
+                            onClick={() =>
+                              setRating(star)
+                            }
+                            onMouseEnter={() =>
+                              setHoverRating(star)
+                            }
+                            onMouseLeave={() =>
+                              setHoverRating(null)
+                            }
                             className="rounded-lg p-1 text-gray-600 transition-colors hover:text-amber-400 focus:outline-none"
                           >
                             <Star
@@ -446,7 +588,9 @@ export default function RepositoryFeedback() {
                       rows={4}
                       placeholder="Share your thoughts on the problem statements, mentorship, platform, or organization..."
                       value={comments}
-                      onChange={(e) => setComments(e.target.value)}
+                      onChange={(e) =>
+                        setComments(e.target.value)
+                      }
                       required
                       className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-[#111827] px-4 py-3 text-sm text-white placeholder-gray-600 focus:border-white/30 focus:outline-none focus:ring-1 focus:ring-white/30"
                     />
@@ -465,29 +609,36 @@ export default function RepositoryFeedback() {
                     ) : (
                       <>
                         <Send size={15} />
-                        {currentFeedback ? 'Update Feedback' : 'Submit Feedback'}
+                        Submit Feedback
                       </>
                     )}
                   </button>
                 </form>
               ) : (
                 <div className="mt-6 rounded-2xl border border-white/5 bg-white/[0.02] p-5 text-center">
-                  <Lock size={20} className="mx-auto text-gray-500" />
+                  <Lock
+                    size={20}
+                    className="mx-auto text-gray-500"
+                  />
+
                   <p className="mt-2 text-sm font-medium text-gray-300">
-                    Feedback submission is currently unavailable
+                    Feedback submission is currently
+                    unavailable
                   </p>
+
                   <p className="mt-1 text-xs text-gray-500">
-                    Feedback opens toward the end of the event. Please check back later.
+                    Feedback opens toward the end of the event.
+                    Please check back later.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Current Feedback Display if submitted */}
+            {/* Current Feedback Display */}
             {currentFeedback && (
               <div className="mt-6 border-t border-white/10 pt-5">
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Previously Submitted Feedback
+                  Submitted Feedback
                 </p>
 
                 <div className="mt-2 rounded-xl border border-white/10 bg-[#111827] p-4">
@@ -503,6 +654,7 @@ export default function RepositoryFeedback() {
                         }
                       />
                     ))}
+
                     <span className="ml-2 text-xs text-gray-400">
                       ({currentFeedback.rating}/5 stars)
                     </span>
@@ -513,7 +665,10 @@ export default function RepositoryFeedback() {
                   </p>
 
                   <p className="mt-2 text-[11px] text-gray-500">
-                    Submitted: {new Date(currentFeedback.created_at).toLocaleString()}
+                    Submitted:{' '}
+                    {new Date(
+                      currentFeedback.created_at,
+                    ).toLocaleString()}
                   </p>
                 </div>
               </div>

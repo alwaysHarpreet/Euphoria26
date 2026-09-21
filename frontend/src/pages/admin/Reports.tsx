@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   Download,
   FileText,
+  GitBranch,
   Loader2,
   Users,
   XCircle,
@@ -14,7 +15,10 @@ import {
 import AdminLayout from '../../components/layout/AdminLayout'
 import api from '../../services/api'
 
-type ReportType = 'evaluations' | 'teams'
+type ReportType =
+  | 'evaluations'
+  | 'teams'
+  | 'repository-feedback'
 
 function getErrorMessage(error: unknown) {
   if (
@@ -48,28 +52,45 @@ function getErrorMessage(error: unknown) {
 export default function AdminReports() {
   const [downloading, setDownloading] =
     useState<ReportType | null>(null)
+
   const [error, setError] = useState('')
 
-  const downloadReport = async (reportType: ReportType) => {
+  const downloadReport = async (
+    reportType: ReportType,
+  ) => {
     try {
       setDownloading(reportType)
       setError('')
 
       const response = await api.get<Blob>(
         `/admin/reports/${reportType}.csv`,
-        { responseType: 'blob' },
+        {
+          responseType: 'blob',
+        },
       )
 
-      const url = window.URL.createObjectURL(response.data)
+      const url =
+        window.URL.createObjectURL(response.data)
+
       const link = document.createElement('a')
+
       link.href = url
-      link.download =
-        reportType === 'evaluations'
-          ? 'hackoddsey_evaluations.csv'
-          : 'hackoddsey_teams.csv'
+
+      if (reportType === 'evaluations') {
+        link.download =
+          'hackoddsey_evaluations.csv'
+      } else if (reportType === 'teams') {
+        link.download =
+          'hackoddsey_teams.csv'
+      } else {
+        link.download =
+          'hackoddsey_repository_feedback.csv'
+      }
+
       document.body.appendChild(link)
       link.click()
       link.remove()
+
       window.URL.revokeObjectURL(url)
     } catch (requestError) {
       setError(getErrorMessage(requestError))
@@ -107,9 +128,13 @@ export default function AdminReports() {
             icon={<ClipboardCheck size={20} />}
             title="Evaluation Report"
             description="Export submitted evaluation records with team, round, evaluator and score details."
-            loading={downloading === 'evaluations'}
+            loading={
+              downloading === 'evaluations'
+            }
             disabled={downloading !== null}
-            onDownload={() => downloadReport('evaluations')}
+            onDownload={() =>
+              downloadReport('evaluations')
+            }
           />
 
           <ReportCard
@@ -118,16 +143,43 @@ export default function AdminReports() {
             description="Export registered team information and problem-selection details."
             loading={downloading === 'teams'}
             disabled={downloading !== null}
-            onDownload={() => downloadReport('teams')}
+            onDownload={() =>
+              downloadReport('teams')
+            }
+          />
+
+          <ReportCard
+            icon={<GitBranch size={20} />}
+            title="Repository & Feedback Report"
+            description="Export each team's repository URL, GitHub star count, feedback rating and feedback comments."
+            loading={
+              downloading ===
+              'repository-feedback'
+            }
+            disabled={downloading !== null}
+            onDownload={() =>
+              downloadReport(
+                'repository-feedback',
+              )
+            }
           />
         </div>
 
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-white/10 bg-[#111827] p-5">
-          <FileText size={18} className="mt-0.5 shrink-0 text-gray-500" />
+          <FileText
+            size={18}
+            className="mt-0.5 shrink-0 text-gray-500"
+          />
+
           <div>
-            <p className="text-sm text-gray-300">CSV exports use live database data.</p>
+            <p className="text-sm text-gray-300">
+              CSV exports use live database data.
+            </p>
+
             <p className="mt-1 text-xs leading-5 text-gray-600">
-              Reports include the latest teams and evaluation records available to the administrator.
+              Repository stars are fetched from the public
+              GitHub repository when the repository report is
+              generated.
             </p>
           </div>
         </div>
@@ -159,7 +211,10 @@ function ReportCard({
         {icon}
       </div>
 
-      <h3 className="mt-5 text-base font-semibold text-white">{title}</h3>
+      <h3 className="mt-5 text-base font-semibold text-white">
+        {title}
+      </h3>
+
       <p className="mt-2 min-h-12 text-sm leading-6 text-gray-500">
         {description}
       </p>
@@ -171,11 +226,17 @@ function ReportCard({
         className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-[#000000] transition hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? (
-          <Loader2 size={16} className="animate-spin" />
+          <Loader2
+            size={16}
+            className="animate-spin"
+          />
         ) : (
           <Download size={16} />
         )}
-        {loading ? 'Downloading...' : 'Download CSV'}
+
+        {loading
+          ? 'Downloading...'
+          : 'Download CSV'}
       </button>
 
       <div className="mt-5 flex items-center gap-2 text-[11px] text-gray-600">

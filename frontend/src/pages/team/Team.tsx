@@ -126,6 +126,7 @@ export default function Team() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1400px]">
+        {/* Page heading */}
         <div className="mb-8">
           <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-gray-500">
             Team Workspace
@@ -150,7 +151,9 @@ export default function Team() {
           </p>
         </div>
 
+        {/* Team overview */}
         <div className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr]">
+          {/* Team Profile */}
           <section className="rounded-2xl border border-white/10 bg-[#111827]">
             <div className="border-b border-white/10 p-6">
               <div className="flex items-center gap-3">
@@ -185,32 +188,13 @@ export default function Team() {
 
               <InfoRow
                 icon={Mail}
-                label="Registered Email"
+                label="Login Email"
                 value={team.leader_email}
               />
-
-              <div className="flex items-center gap-4 px-6 py-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-gray-500">
-                  <CheckCircle2 size={17} strokeWidth={1.8} />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-600">
-                    Status
-                  </p>
-
-                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
-
-                    <span className="text-xs text-gray-300">
-                      Active
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           </section>
 
+          {/* Team Identity */}
           <section className="rounded-2xl border border-white/10 bg-[#111827] p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
               Team Identity
@@ -249,6 +233,7 @@ export default function Team() {
           </section>
         </div>
 
+        {/* Team Members */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#111827]">
           <div className="flex items-center justify-between border-b border-white/10 p-6">
             <div className="flex items-center gap-3">
@@ -279,47 +264,78 @@ export default function Team() {
               </p>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {team.members.map((member, index) => (
-                  <div
-                    key={member.id}
-                    className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/[0.02] p-5"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.06] text-xs font-semibold text-white">
-                          #{index + 1}
+                {team.members.map((member, index) => {
+                  const isLeader = member.role?.toLowerCase() === 'leader'
+
+                  return (
+                    <div
+                      key={member.id}
+                      className="flex flex-col justify-between rounded-xl border border-white/10 bg-white/[0.02] p-5"
+                    >
+                      <div>
+                        {/* Card top */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.06] text-xs font-semibold text-white">
+                            #{index + 1}
+                          </div>
+
+                          <span className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] font-medium text-gray-400">
+                            {member.year || '—'}
+                          </span>
                         </div>
 
-                        <span className="rounded-md border border-white/10 px-2 py-0.5 text-[11px] font-medium text-gray-400">
-                          {member.year}
-                        </span>
+                        {/* Role */}
+                        <div className="mt-3">
+                          <span
+                            className={`rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                              isLeader
+                                ? 'border-white/15 bg-white/[0.05] text-white'
+                                : 'border-white/10 text-gray-500'
+                            }`}
+                          >
+                            {isLeader ? 'Leader' : 'Member'}
+                          </span>
+                        </div>
+
+                        {/* Name */}
+                        <h3 className="mt-3 text-base font-semibold text-white">
+                          {member.name}
+                        </h3>
+
+                        {/* College */}
+                        <p className="mt-1 text-xs leading-relaxed text-[#7183a0]">
+                          {member.college}
+                        </p>
+
+                        {/* Member details */}
+                        <div className="mt-5 space-y-3 border-t border-white/[0.06] pt-4">
+                          <MemberDetail
+                            label="Registration No."
+                            value={member.registration_number}
+                          />
+
+                          <MemberDetail
+                            label="Personal Email"
+                            value={member.email}
+                            breakText
+                          />
+
+
+                          <MemberDetail
+                            label="Academic Year"
+                            value={member.year}
+                          />
+                        </div>
                       </div>
-
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-xs font-medium text-gray-400">
-                          {member.role}
-                        </span>
-                      </div>
-
-                      <h3 className="mt-2 text-base font-semibold text-white">
-                        {member.name}
-                      </h3>
-
-                      <p className="mt-1 text-xs text-gray-300">
-                        {member.email}
-                      </p>
-
-                      <p className="mt-2 text-xs leading-relaxed text-[#7183a0]">
-                        {member.college}
-                      </p>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
         </section>
 
+        {/* Selected problem */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#111827]">
           <div className="border-b border-white/10 p-6">
             <div className="flex items-center gap-3">
@@ -398,6 +414,34 @@ function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
           {value}
         </p>
       </div>
+    </div>
+  )
+}
+
+interface MemberDetailProps {
+  label: string
+  value: string | null
+  breakText?: boolean
+}
+
+function MemberDetail({
+  label,
+  value,
+  breakText = false,
+}: MemberDetailProps) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-gray-600">
+        {label}
+      </p>
+
+      <p
+        className={`mt-1 text-xs text-gray-400 ${
+          breakText ? 'break-all' : 'truncate'
+        }`}
+      >
+        {value || '—'}
+      </p>
     </div>
   )
 }

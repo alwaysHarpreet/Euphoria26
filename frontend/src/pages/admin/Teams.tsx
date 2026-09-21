@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import type { ChangeEvent } from 'react'
 
 import {
   CheckCircle2,
@@ -10,6 +11,7 @@ import {
   ImageOff,
   Loader2,
   Search,
+  Star,
   Upload,
   Users,
   X,
@@ -20,14 +22,16 @@ import api from '../../services/api'
 
 interface Team {
   id: number
-  team_code: string
+  team_code: string | null
   team_name: string
   college_name: string
   leader_name: string
   leader_email: string
   selected_problem_id: number | null
-  selected_problem_title: string | null
   group_photo_path: string | null
+  repository_url: string | null
+  repository_submitted_at: string | null
+  feedback_rating: number | null
   created_at: string
 }
 
@@ -45,10 +49,7 @@ function getPhotoUrl(path: string | null) {
     return path
   }
 
-  return `${api.defaults.baseURL}/uploads/${path.replace(
-    /^\//,
-    '',
-  )}`
+  return `${api.defaults.baseURL}/uploads/${path.replace(/^\/+/, '')}`
 }
 
 function getErrorMessage(
@@ -96,20 +97,47 @@ function getErrorMessage(
             })
             .join(', ')
         }
-
-        if (
-          typeof detail === 'object' &&
-          detail !== null &&
-          'message' in detail &&
-          typeof detail.message === 'string'
-        ) {
-          return detail.message
-        }
       }
     }
   }
 
   return fallback
+}
+
+function FeedbackStars({
+  rating,
+}: {
+  rating: number | null
+}) {
+  if (rating === null) {
+    return (
+      <span className="text-xs text-gray-600">
+        Pending
+      </span>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            size={14}
+            className={
+              star <= rating
+                ? 'fill-amber-400 text-amber-400'
+                : 'text-gray-700'
+            }
+          />
+        ))}
+      </div>
+
+      <span className="text-xs text-gray-400">
+        {rating}/5
+      </span>
+    </div>
+  )
 }
 
 export default function AdminTeams() {
@@ -145,9 +173,7 @@ export default function AdminTeams() {
 
         setTeams(response.data)
       } catch (requestError) {
-        setError(
-          getErrorMessage(requestError),
-        )
+        setError(getErrorMessage(requestError))
       } finally {
         setLoading(false)
       }
@@ -172,9 +198,7 @@ export default function AdminTeams() {
 
       setTeams(response.data)
     } catch (requestError) {
-      setError(
-        getErrorMessage(requestError),
-      )
+      setError(getErrorMessage(requestError))
     } finally {
       setLoading(false)
     }
@@ -187,7 +211,7 @@ export default function AdminTeams() {
   }
 
   const handleCsvUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>,
+    event: ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0]
 
@@ -197,7 +221,11 @@ export default function AdminTeams() {
       return
     }
 
-    if (!file.name.toLowerCase().endsWith('.csv')) {
+    if (
+      !file.name
+        .toLowerCase()
+        .endsWith('.csv')
+    ) {
       setUploadError(
         'Please select a CSV file.',
       )
@@ -266,8 +294,7 @@ export default function AdminTeams() {
             </h2>
 
             <p className="mt-2 text-sm text-gray-500">
-              Review registered teams and their
-              problem selections.
+              Review registered teams, repositories and feedback.
             </p>
           </div>
 
@@ -327,7 +354,7 @@ export default function AdminTeams() {
               <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#111827] px-4 py-3">
                 <CheckCircle2
                   size={17}
-                  className="shrink-0 text-gray-300"
+                  className="shrink-0 text-emerald-400"
                 />
 
                 <p className="text-sm text-gray-300">
@@ -397,15 +424,11 @@ export default function AdminTeams() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[1050px] text-left text-sm">
                 <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.12em] text-gray-600">
                   <tr>
                     <th className="px-6 py-4 font-medium">
                       Team
-                    </th>
-
-                    <th className="px-6 py-4 font-medium">
-                      College
                     </th>
 
                     <th className="px-6 py-4 font-medium">
@@ -420,6 +443,14 @@ export default function AdminTeams() {
                       Problem
                     </th>
 
+                    <th className="px-6 py-4 font-medium">
+                      GitHub
+                    </th>
+
+                    <th className="px-6 py-4 font-medium">
+                      Feedback
+                    </th>
+
                     <th className="px-6 py-4 text-right font-medium">
                       Action
                     </th>
@@ -432,6 +463,9 @@ export default function AdminTeams() {
                       getPhotoUrl(
                         team.group_photo_path,
                       )
+
+                    const repositoryCompleted =
+                      Boolean(team.repository_url)
 
                     return (
                       <tr
@@ -448,9 +482,7 @@ export default function AdminTeams() {
                               />
                             ) : (
                               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.05] text-gray-600">
-                                <ImageOff
-                                  size={16}
-                                />
+                                <ImageOff size={16} />
                               </div>
                             )}
 
@@ -461,10 +493,6 @@ export default function AdminTeams() {
                         </td>
 
                         <td className="px-6 py-4 text-gray-400">
-                          {team.college_name}
-                        </td>
-
-                        <td className="px-6 py-4 text-gray-400">
                           {team.leader_name}
                         </td>
 
@@ -472,23 +500,47 @@ export default function AdminTeams() {
                           {team.leader_email}
                         </td>
 
-                        <td className="max-w-[280px] px-6 py-4 text-gray-400">
-                          {team.selected_problem_title ??
+                        <td className="px-6 py-4 text-gray-400">
+                          {team.selected_problem_id ??
                             'Not selected'}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <span
+                            className={[
+                              'inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-medium',
+                              repositoryCompleted
+                                ? 'border-emerald-400/20 bg-emerald-400/[0.07] text-emerald-300'
+                                : 'border-white/10 bg-white/[0.03] text-gray-500',
+                            ].join(' ')}
+                          >
+                            {repositoryCompleted && (
+                              <CheckCircle2 size={13} />
+                            )}
+
+                            {repositoryCompleted
+                              ? 'Completed'
+                              : 'Pending'}
+                          </span>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <FeedbackStars
+                            rating={
+                              team.feedback_rating
+                            }
+                          />
                         </td>
 
                         <td className="px-6 py-4 text-right">
                           <button
                             type="button"
                             onClick={() =>
-                              setSelectedTeam(
-                                team,
-                              )
+                              setSelectedTeam(team)
                             }
                             className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:border-white/25 hover:bg-white/[0.05] hover:text-white"
                           >
                             <Eye size={14} />
-
                             View
                           </button>
                         </td>
@@ -549,31 +601,38 @@ export default function AdminTeams() {
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <Detail
-                label="College"
-                value={
-                  selectedTeam.college_name
-                }
-              />
-
-              <Detail
                 label="Leader"
-                value={
-                  selectedTeam.leader_name
-                }
+                value={selectedTeam.leader_name}
               />
 
               <Detail
                 label="Email"
-                value={
-                  selectedTeam.leader_email
-                }
+                value={selectedTeam.leader_email}
               />
 
               <Detail
                 label="Selected problem"
                 value={
-                  selectedTeam.selected_problem_title ??
+                  selectedTeam.selected_problem_id?.toString() ??
                   'Not selected'
+                }
+              />
+
+              <Detail
+                label="GitHub"
+                value={
+                  selectedTeam.repository_url
+                    ? 'Completed'
+                    : 'Pending'
+                }
+              />
+
+              <Detail
+                label="Feedback"
+                value={
+                  selectedTeam.feedback_rating === null
+                    ? 'Pending'
+                    : `${selectedTeam.feedback_rating}/5 stars`
                 }
               />
 
@@ -583,14 +642,24 @@ export default function AdminTeams() {
                   selectedTeam.created_at,
                 ).toLocaleDateString()}
               />
-
-              <Detail
-                label="Team ID"
-                value={
-                  selectedTeam.team_code
-                }
-              />
             </div>
+
+            {selectedTeam.repository_url && (
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                <p className="text-[11px] text-gray-600">
+                  Repository
+                </p>
+
+                <a
+                  href={selectedTeam.repository_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 block break-all text-sm text-gray-300 hover:text-white hover:underline"
+                >
+                  {selectedTeam.repository_url}
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   CheckCircle2,
-  Eye,
   GitBranch,
   Image as ImageIcon,
   MessageSquare,
@@ -45,6 +44,34 @@ interface Team {
   repository_submitted_at: string | null
   feedback: Feedback | null
   created_at: string
+}
+
+interface LeaderboardEntry {
+  rank: number
+  team_id: number
+  team_name: string
+  college_name: string
+  group_photo_url: string | null
+  score: number
+  status: string
+}
+
+interface LeaderboardResponse {
+  round: {
+    id: number
+    name: string
+    round_number: number
+  } | null
+  updated_at: string | null
+  entries: LeaderboardEntry[]
+  message?: string | null
+}
+
+interface RoundOption {
+  id: number
+  name: string
+  round_number: number
+  is_active: boolean
 }
 
 interface ProgressItemProps {
@@ -112,7 +139,9 @@ function ProgressItem({
               : 'text-gray-500',
           ].join(' ')}
         >
-          {completed ? completedText : pendingText}
+          {completed
+            ? completedText
+            : pendingText}
         </p>
       </div>
     </div>
@@ -122,20 +151,34 @@ function ProgressItem({
 export default function Dashboard() {
   const navigate = useNavigate()
 
-  const [team, setTeam] = useState<Team | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [team, setTeam] =
+    useState<Team | null>(null)
+
+  const [loading, setLoading] =
+    useState(true)
+
   const [error, setError] = useState('')
+
+  const [leaderboard, setLeaderboard] =
+    useState<LeaderboardResponse | null>(null)
+
+  const [activeRoundId, setActiveRoundId] =
+    useState<number | null>(null)
 
   const fetchTeam = async () => {
     try {
       setLoading(true)
       setError('')
 
-      const response = await api.get<Team>('/teams/me')
+      const response =
+        await api.get<Team>('/teams/me')
 
       setTeam(response.data)
     } catch (err: any) {
-      console.error('Failed to fetch team:', err)
+      console.error(
+        'Failed to fetch team:',
+        err,
+      )
 
       setError(
         err?.response?.data?.detail ||
@@ -146,13 +189,160 @@ export default function Dashboard() {
     }
   }
 
+  const fetchLeaderboard = async (
+    roundId?: number,
+  ) => {
+    try {
+      const response =
+        await api.get<LeaderboardResponse>(
+          '/leaderboard',
+          roundId
+            ? {
+                params: {
+                  round_id: roundId,
+                },
+              }
+            : undefined,
+        )
+
+      setLeaderboard(response.data)
+    } catch (err) {
+      console.error(
+        'Failed to fetch leaderboard:',
+        err,
+      )
+    }
+  }
+
   useEffect(() => {
     fetchTeam()
   }, [])
 
-  const handlePhotoUploadSuccess = async () => {
-    await fetchTeam()
-  }
+  /*
+   * Load the active round and its leaderboard.
+   */
+  useEffect(() => {
+    const initializeLeaderboard =
+      async () => {
+        try {
+          const roundsResponse =
+            await api.get<RoundOption[]>(
+              '/rounds',
+            )
+
+          const activeRound =
+            roundsResponse.data.find(
+              (round) => round.is_active,
+            )
+
+          if (activeRound) {
+            setActiveRoundId(
+              activeRound.id,
+            )
+
+            await fetchLeaderboard(
+              activeRound.id,
+            )
+          } else {
+            /*
+             * If there is no active round,
+             * still load the backend's default
+             * leaderboard response.
+             */
+            await fetchLeaderboard()
+          }
+        } catch (err) {
+          console.error(
+            'Failed to initialize leaderboard:',
+            err,
+          )
+        }
+      }
+
+    initializeLeaderboard()
+  }, [])
+
+  /*
+   * Keep the Dashboard synchronized with
+   * evaluator changes through the same
+   * leaderboard WebSocket used by the
+   * leaderboard page.
+   */
+  useEffect(() => {
+    if (!activeRoundId) {
+      return
+    }
+
+    const websocketBaseUrl =
+      api.defaults.baseURL
+        ?.replace(/^http:/, 'ws:')
+        .replace(/^https:/, 'wss:')
+
+    if (!websocketBaseUrl) {
+      return
+    }
+
+    let websocket: WebSocket | null =
+      null
+
+    let reconnectTimer:
+      number | undefined
+
+    let stopped = false
+
+    const connect = () => {
+      if (stopped) {
+        return
+      }
+
+      websocket = new WebSocket(
+        `${websocketBaseUrl}/ws/leaderboard/${activeRoundId}`,
+      )
+
+      websocket.onmessage = () => {
+        /*
+         * The WebSocket tells us that leaderboard
+         * data changed. Fetch the fresh ranking.
+         */
+        fetchLeaderboard(activeRoundId)
+      }
+
+      websocket.onclose = () => {
+        if (!stopped) {
+          reconnectTimer =
+            window.setTimeout(
+              connect,
+              3000,
+            )
+        }
+      }
+
+      websocket.onerror = () => {
+        websocket?.close()
+      }
+    }
+
+    connect()
+
+    return () => {
+      stopped = true
+
+      if (
+        reconnectTimer !== undefined
+      ) {
+        window.clearTimeout(
+          reconnectTimer,
+        )
+      }
+
+      websocket?.close()
+    }
+  }, [activeRoundId])
+
+  const handlePhotoUploadSuccess =
+    async () => {
+      await fetchTeam()
+    }
 
   if (loading) {
     return (
@@ -183,7 +373,8 @@ export default function Dashboard() {
             </h1>
 
             <p className="mt-2 text-sm text-gray-500">
-              {error || 'Team information was not found.'}
+              {error ||
+                'Team information was not found.'}
             </p>
           </div>
         </div>
@@ -191,10 +382,17 @@ export default function Dashboard() {
     )
   }
 
-  const problemCompleted = Boolean(team.selected_problem)
-  const groupPhotoCompleted = Boolean(team.group_photo_path)
-  const repositoryCompleted = Boolean(team.repository_url)
-  const feedbackCompleted = Boolean(team.feedback)
+  const problemCompleted =
+    Boolean(team.selected_problem)
+
+  const groupPhotoCompleted =
+    Boolean(team.group_photo_path)
+
+  const repositoryCompleted =
+    Boolean(team.repository_url)
+
+  const feedbackCompleted =
+    Boolean(team.feedback)
 
   const completedCount = [
     problemCompleted,
@@ -203,7 +401,24 @@ export default function Dashboard() {
     feedbackCompleted,
   ].filter(Boolean).length
 
-  const progressPercentage = completedCount * 25
+  const progressPercentage =
+    completedCount * 25
+
+  /*
+   * Find the logged-in team's current
+   * leaderboard position.
+   */
+  const currentLeaderboardEntry =
+    leaderboard?.entries.find(
+      (entry) =>
+        entry.team_id === team.id,
+    ) ?? null
+
+  const currentRank =
+    currentLeaderboardEntry?.rank ?? null
+
+  const currentScore =
+    currentLeaderboardEntry?.score ?? null
 
   return (
     <DashboardLayout>
@@ -218,7 +433,8 @@ export default function Dashboard() {
           </h1>
 
           <p className="mt-2 text-sm text-gray-500">
-            Manage your hackathon participation and track your progress.
+            Manage your hackathon participation and
+            track your progress.
           </p>
         </div>
 
@@ -233,7 +449,9 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate('/team')}
+                onClick={() =>
+                  navigate('/team')
+                }
                 className="text-xs font-medium text-[#8fa8ca] transition-colors hover:text-white"
               >
                 View
@@ -256,7 +474,11 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate('/problem-statement')}
+                onClick={() =>
+                  navigate(
+                    '/problem-statement',
+                  )
+                }
                 className="text-xs font-medium text-[#8fa8ca] transition-colors hover:text-white"
               >
                 View
@@ -265,7 +487,9 @@ export default function Dashboard() {
 
             <div className="flex min-h-[105px] items-center justify-center">
               <p className="text-center text-lg font-semibold text-white">
-                {team.selected_problem ? 'Selected' : 'Not selected'}
+                {team.selected_problem
+                  ? 'Selected'
+                  : 'Not selected'}
               </p>
             </div>
           </div>
@@ -279,7 +503,11 @@ export default function Dashboard() {
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => navigate('/repository-feedback')}
+                onClick={() =>
+                  navigate(
+                    '/repository-feedback',
+                  )
+                }
                 className="group rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -305,7 +533,11 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate('/repository-feedback')}
+                onClick={() =>
+                  navigate(
+                    '/repository-feedback',
+                  )
+                }
                 className="group rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
               >
                 <div className="flex items-center justify-between gap-2">
@@ -340,7 +572,9 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate('/leaderboard')}
+                onClick={() =>
+                  navigate('/leaderboard')
+                }
                 className="text-xs font-medium text-[#8fa8ca] transition-colors hover:text-white"
               >
                 Board
@@ -348,13 +582,39 @@ export default function Dashboard() {
             </div>
 
             <div className="flex min-h-[105px] flex-col items-center justify-center">
-              <p className="text-center text-lg font-semibold text-white">
-                —
-              </p>
+              {currentRank !== null ? (
+                <>
+                  <p className="text-center text-3xl font-semibold text-white">
+                    #{currentRank}
+                  </p>
 
-              <p className="mt-1 text-center text-xs text-gray-500">
-                Leaderboard not started
-              </p>
+                  {currentScore !== null && (
+                    <p className="mt-1 text-center text-xs text-gray-500">
+                      {currentScore} / 100
+                    </p>
+                  )}
+                </>
+              ) : leaderboard?.round ? (
+                <>
+                  <p className="text-center text-lg font-semibold text-white">
+                    —
+                  </p>
+
+                  <p className="mt-1 text-center text-xs text-gray-500">
+                    Not ranked yet
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-center text-lg font-semibold text-white">
+                    —
+                  </p>
+
+                  <p className="mt-1 text-center text-xs text-gray-500">
+                    Leaderboard not started
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -375,7 +635,9 @@ export default function Dashboard() {
 
               <button
                 type="button"
-                onClick={() => navigate('/leaderboard')}
+                onClick={() =>
+                  navigate('/leaderboard')
+                }
                 className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
               >
                 Round 1
@@ -406,7 +668,8 @@ export default function Dashboard() {
 
               <div className="mt-2 flex items-center justify-between">
                 <span className="text-[11px] text-gray-600">
-                  {completedCount} of 4 milestones completed
+                  {completedCount} of 4 milestones
+                  completed
                 </span>
 
                 {completedCount === 4 && (
@@ -429,7 +692,9 @@ export default function Dashboard() {
 
               <ProgressItem
                 title="Group Photo"
-                completed={groupPhotoCompleted}
+                completed={
+                  groupPhotoCompleted
+                }
                 completedText="Uploaded"
                 pendingText="Pending"
                 icon={ImageIcon}
@@ -437,7 +702,9 @@ export default function Dashboard() {
 
               <ProgressItem
                 title="GitHub Repository"
-                completed={repositoryCompleted}
+                completed={
+                  repositoryCompleted
+                }
                 completedText="Submitted"
                 pendingText="Pending"
                 icon={GitBranch}
@@ -470,7 +737,9 @@ export default function Dashboard() {
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-base font-bold text-[#111827]">
                   {team.team_name
                     .split(' ')
-                    .map((word) => word[0])
+                    .map(
+                      (word) => word[0],
+                    )
                     .join('')
                     .slice(0, 2)
                     .toUpperCase()}
@@ -530,8 +799,12 @@ export default function Dashboard() {
         {!team.group_photo_path && (
           <div className="mt-5">
             <GroupPhotoUpload
-              currentPhotoUrl={team.group_photo_url}
-              onUploadSuccess={handlePhotoUploadSuccess}
+              currentPhotoUrl={
+                team.group_photo_url
+              }
+              onUploadSuccess={
+                handlePhotoUploadSuccess
+              }
             />
           </div>
         )}
@@ -557,10 +830,24 @@ export default function Dashboard() {
                 </h2>
 
                 <p className="mt-2 max-w-4xl text-sm leading-6 text-gray-500">
-                  {team.selected_problem.description}
+                  {
+                    team.selected_problem
+                      .description
+                  }
                 </p>
               </div>
-              
+
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    '/problem-statement',
+                  )
+                }
+                className="flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+              >
+                View
+              </button>
             </div>
           </section>
         )}

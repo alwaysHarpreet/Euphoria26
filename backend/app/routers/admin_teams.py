@@ -17,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.problem import ProblemStatement
+from app.models.feedback import TeamFeedback
 from app.models.team import Team
 from app.models.team_member import TeamMember
 from app.routers.dependencies import get_current_admin
@@ -58,17 +58,12 @@ def get_admin_teams(
     db: Session = Depends(get_db),
 ):
     statement = (
-        select(
-            Team,
-            ProblemStatement.title.label(
-                "selected_problem_title"
-            ),
-        )
+        select(Team, TeamFeedback)
         .outerjoin(
-            ProblemStatement,
-            ProblemStatement.id
-            == Team.selected_problem_id,
+            TeamFeedback,
+            TeamFeedback.team_id == Team.id,
         )
+        .order_by(Team.team_name)
     )
 
     if search:
@@ -80,38 +75,44 @@ def get_admin_teams(
             | (Team.college_name.ilike(search_pattern))
             | (Team.leader_name.ilike(search_pattern))
             | (Team.leader_email.ilike(search_pattern))
-            | (
-                ProblemStatement.title.ilike(
-                    search_pattern
-                )
-            )
         )
-
-    statement = statement.order_by(
-        Team.team_name
-    )
 
     rows = db.execute(statement).all()
 
     response = []
 
-    for team, selected_problem_title in rows:
-        team_data = AdminTeamResponse.model_validate(
-            team
-        )
+    for team, feedback in rows:
+        photo_path = team.group_photo_path
 
-        team_data.selected_problem_title = (
-            selected_problem_title
-        )
-
-        if team.group_photo_path:
-            team_data.group_photo_path = (
+        if photo_path:
+            photo_path = (
                 str(request.base_url).rstrip("/")
                 + "/uploads/"
-                + team.group_photo_path
+                + photo_path
             )
 
-        response.append(team_data)
+        response.append(
+            AdminTeamResponse(
+                id=team.id,
+                team_code=team.team_code,
+                team_name=team.team_name,
+                college_name=team.college_name,
+                leader_name=team.leader_name,
+                leader_email=team.leader_email,
+                selected_problem_id=team.selected_problem_id,
+                group_photo_path=photo_path,
+                repository_url=team.repository_url,
+                repository_submitted_at=(
+                    team.repository_submitted_at
+                ),
+                feedback_rating=(
+                    feedback.rating
+                    if feedback is not None
+                    else None
+                ),
+                created_at=team.created_at,
+            )
+        )
 
     return response
 
@@ -152,9 +153,7 @@ def import_teams_csv(
             detail="CSV file is empty.",
         )
 
-    reader = csv.DictReader(
-        io.StringIO(content)
-    )
+    reader = csv.DictReader(io.StringIO(content))
 
     if reader.fieldnames is None:
         raise HTTPException(
@@ -237,8 +236,8 @@ def import_teams_csv(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"Row {row_number} has invalid role "
-                    f"'{row['role']}'. "
+                    f"Row {row_number} has invalid "
+                    f"role '{row['role']}'. "
                     "Allowed values are Leader or Member."
                 ),
             )
@@ -248,9 +247,7 @@ def import_teams_csv(
     if not rows:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "CSV contains no participant records."
-            ),
+            detail="CSV contains no participant records.",
         )
 
     grouped: dict[
@@ -280,8 +277,8 @@ def import_teams_csv(
 
         if len(team_rows) not in {4, 5}:
             errors.append(
-                f"Team {team_code} must have 4 or 5 members; "
-                f"found {len(team_rows)}."
+                f"Team {team_code} must contain "
+                "4 or 5 members."
             )
 
         leaders = [
@@ -292,8 +289,8 @@ def import_teams_csv(
 
         if len(leaders) != 1:
             errors.append(
-                f"Team {team_code} must have exactly one Leader; "
-                f"found {len(leaders)}."
+                f"Team {team_code} must contain "
+                "exactly one Leader."
             )
 
         team_names = {
@@ -307,12 +304,12 @@ def import_teams_csv(
                 "teamName values."
             )
 
-        colleges = {
+        college_names = {
             row["collegeName"]
             for row in team_rows
         }
 
-        if len(colleges) != 1:
+        if len(college_names) != 1:
             errors.append(
                 f"Team {team_code} has inconsistent "
                 "collegeName values."
@@ -326,22 +323,18 @@ def import_teams_csv(
         if len(passwords) != 1:
             errors.append(
                 f"Team {team_code} has inconsistent "
-                "passwords."
+                "password values."
             )
 
         for row in team_rows:
             registration_number = (
-                row["registrationNumber"].lower()
+                row["registrationNumber"]
             )
 
-            if (
-                registration_number
-                in registration_numbers
-            ):
+            if registration_number in registration_numbers:
                 errors.append(
-                    "Duplicate registration number "
-                    "in CSV: "
-                    f"{row['registrationNumber']}"
+                    "Duplicate registration number: "
+                    f"{registration_number}"
                 )
 
             registration_numbers.add(
@@ -352,8 +345,7 @@ def import_teams_csv(
 
             if email in emails:
                 errors.append(
-                    f"Duplicate email in CSV: "
-                    f"{row['email']}"
+                    f"Duplicate email: {email}"
                 )
 
             emails.add(email)
@@ -361,10 +353,7 @@ def import_teams_csv(
     if errors:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "message": "CSV validation failed.",
-                "errors": errors,
-            },
+            detail=errors,
         )
 
     existing_team_codes = set(
@@ -375,36 +364,56 @@ def import_teams_csv(
         ).all()
     )
 
-    duplicate_team_codes = sorted(
-        code
-        for code in existing_team_codes
-        if code is not None
-    )
-
-    if duplicate_team_codes:
+    if existing_team_codes:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "The following team IDs already exist: "
-                + ", ".join(duplicate_team_codes)
+                + ", ".join(
+                    sorted(existing_team_codes)
+                )
             ),
         )
 
-    existing_emails = {
+    existing_emails = set(
         email.lower()
         for email in db.scalars(
             select(Team.leader_email).where(
                 Team.leader_email.in_(emails)
             )
         ).all()
-    }
+    )
 
     if existing_emails:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "The following emails already exist: "
-                + ", ".join(sorted(existing_emails))
+                + ", ".join(
+                    sorted(existing_emails)
+                )
+            ),
+        )
+
+    existing_member_emails = set(
+        email.lower()
+        for email in db.scalars(
+            select(TeamMember.email).where(
+                TeamMember.email.in_(emails)
+            )
+        ).all()
+        if email
+    )
+
+    if existing_member_emails:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "The following member emails already "
+                "exist: "
+                + ", ".join(
+                    sorted(existing_member_emails)
+                )
             ),
         )
 
@@ -439,9 +448,9 @@ def import_teams_csv(
                         name=row["memberName"],
                         college=row["collegeName"],
                         year=row["academicYear"],
-                        registration_number=row[
-                            "registrationNumber"
-                        ],
+                        registration_number=(
+                            row["registrationNumber"]
+                        ),
                         email=row["email"],
                         role=row["role"],
                         department=None,
@@ -468,7 +477,8 @@ def import_teams_csv(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "CSV import could not be completed because "
-                "one or more team or member records already exist."
+                "one or more team or member records already "
+                "exist."
             ),
         )
 

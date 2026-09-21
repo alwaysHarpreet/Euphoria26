@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
+  ArrowRight,
   CheckCircle2,
-  Clock3,
-  ExternalLink,
+  Eye,
   GitBranch,
   Image as ImageIcon,
   MessageSquare,
+  Settings2,
   Trophy,
 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import GroupPhotoUpload from '../../components/team/GroupPhotoUpload'
@@ -22,22 +23,17 @@ interface Problem {
   created_at: string
 }
 
-interface TeamMember {
+interface Feedback {
   id: number
-  name: string
-  college: string
-  year: string
-  department: string
-}
-
-interface TeamFeedback {
-  id: number
-  rating: number
-  comments: string
+  team_id: number
+  feedback: string
+  created_at: string
+  updated_at: string
 }
 
 interface Team {
   id: number
+  team_code: string
   team_name: string
   college_name: string
   leader_name: string
@@ -47,39 +43,86 @@ interface Team {
   group_photo_url: string | null
   repository_url: string | null
   repository_submitted_at: string | null
-  members?: TeamMember[]
-  feedback?: TeamFeedback | null
+  feedback: Feedback | null
   created_at: string
 }
 
-interface Round {
-  id: number
-  name: string
-  round_number: number
-  is_active: boolean
+interface ProgressItemProps {
+  title: string
+  completed: boolean
+  completedText: string
+  pendingText: string
+  icon: typeof CheckCircle2
 }
 
-interface LeaderboardEntry {
-  rank: number
-  team_id: number
-  score: number
-}
+function ProgressItem({
+  title,
+  completed,
+  completedText,
+  pendingText,
+  icon: Icon,
+}: ProgressItemProps) {
+  return (
+    <div
+      className={[
+        'flex min-h-[105px] items-center gap-4 rounded-xl border p-5 transition-all',
+        completed
+          ? 'border-emerald-400/25 bg-emerald-400/[0.07]'
+          : 'border-white/10 bg-white/[0.02]',
+      ].join(' ')}
+    >
+      <div
+        className={[
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border',
+          completed
+            ? 'border-emerald-400/25 bg-emerald-400/[0.10]'
+            : 'border-white/10 bg-white/[0.03]',
+        ].join(' ')}
+      >
+        {completed ? (
+          <CheckCircle2
+            size={19}
+            className="text-emerald-400"
+          />
+        ) : (
+          <Icon
+            size={18}
+            className="text-gray-500"
+          />
+        )}
+      </div>
 
-interface LeaderboardResponse {
-  round: {
-    id: number
-    name: string
-    round_number: number
-  } | null
-  entries: LeaderboardEntry[]
+      <div className="min-w-0">
+        <p
+          className={[
+            'text-sm font-medium',
+            completed
+              ? 'text-emerald-300'
+              : 'text-gray-400',
+          ].join(' ')}
+        >
+          {title}
+        </p>
+
+        <p
+          className={[
+            'mt-1 text-sm font-medium',
+            completed
+              ? 'text-emerald-400'
+              : 'text-gray-500',
+          ].join(' ')}
+        >
+          {completed ? completedText : pendingText}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
+
   const [team, setTeam] = useState<Team | null>(null)
-  const [activeRound, setActiveRound] = useState<Round | null>(null)
-  const [teamRank, setTeamRank] = useState<number | null>(null)
-  const [teamScore, setTeamScore] = useState<number | null>(null)
-  const [leaderboardLoaded, setLeaderboardLoaded] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -88,32 +131,9 @@ export default function Dashboard() {
       setLoading(true)
       setError('')
 
-      const [teamResponse, roundsResponse, leaderboardResponse] =
-        await Promise.all([
-          api.get<Team>('/teams/me'),
-          api.get<Round[]>('/rounds'),
-          api.get<LeaderboardResponse>('/leaderboard'),
-        ])
+      const response = await api.get<Team>('/teams/me')
 
-      setTeam(teamResponse.data)
-
-      setActiveRound(
-        roundsResponse.data.find((round) => round.is_active) || null,
-      )
-
-      const entry = leaderboardResponse.data.entries.find(
-        (e) => e.team_id === teamResponse.data.id,
-      )
-
-      if (entry) {
-        setTeamRank(entry.rank)
-        setTeamScore(entry.score)
-      } else {
-        setTeamRank(null)
-        setTeamScore(null)
-      }
-
-      setLeaderboardLoaded(true)
+      setTeam(response.data)
     } catch (err: any) {
       console.error('Failed to fetch team:', err)
 
@@ -171,20 +191,23 @@ export default function Dashboard() {
     )
   }
 
-  // Calculate milestones completed (Problem, Photo, Repo, Feedback)
+  const problemCompleted = Boolean(team.selected_problem)
+  const groupPhotoCompleted = Boolean(team.group_photo_path)
+  const repositoryCompleted = Boolean(team.repository_url)
+  const feedbackCompleted = Boolean(team.feedback)
+
   const completedCount = [
-    Boolean(team.selected_problem),
-    Boolean(team.group_photo_path),
-    Boolean(team.repository_url),
-    Boolean(team.feedback),
+    problemCompleted,
+    groupPhotoCompleted,
+    repositoryCompleted,
+    feedbackCompleted,
   ].filter(Boolean).length
 
-  const progressPercent = Math.round((completedCount / 4) * 100)
+  const progressPercentage = completedCount * 25
 
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1400px]">
-        {/* Page heading */}
         <div className="mb-8">
           <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-gray-500">
             Team Workspace
@@ -195,169 +218,144 @@ export default function Dashboard() {
           </h1>
 
           <p className="mt-2 text-sm text-gray-500">
-            Manage your hackathon participation and track your milestones in real-time.
+            Manage your hackathon participation and track your progress.
           </p>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Team Info */}
+        {/* Top action cards */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Team */}
           <div className="rounded-2xl border border-white/10 bg-[#111827] p-5">
-            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-              Team
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                Team
+              </p>
 
-            <p className="mt-3 truncate text-lg font-semibold text-white">
-              {team.team_name}
-            </p>
+              <button
+                type="button"
+                onClick={() => navigate('/team')}
+                className="text-xs font-medium text-[#8fa8ca] transition-colors hover:text-white"
+              >
+                View
+              </button>
+            </div>
 
-            <p className="mt-1 truncate text-xs text-gray-500">
-              {team.college_name}
-            </p>
+            <div className="flex min-h-[105px] items-center justify-center">
+              <p className="truncate text-center text-lg font-semibold text-white">
+                {team.team_name}
+              </p>
+            </div>
           </div>
 
           {/* Problem */}
           <div className="rounded-2xl border border-white/10 bg-[#111827] p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
                 Problem
               </p>
-              <Link
-                to="/problems"
-                className="text-[11px] text-gray-400 hover:text-white"
+
+              <button
+                type="button"
+                onClick={() => navigate('/problem-statement')}
+                className="text-xs font-medium text-[#8fa8ca] transition-colors hover:text-white"
               >
                 View
-              </Link>
+              </button>
             </div>
 
-            {team.selected_problem ? (
-              <>
-                <p className="mt-3 text-lg font-semibold text-white">
-                  Selected
-                </p>
-
-                <p className="mt-1 truncate text-xs text-gray-500">
-                  {team.selected_problem.title}
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-lg font-semibold text-gray-400">
-                  Not selected
-                </p>
-
-                <p className="mt-1 text-xs text-gray-500">
-                  Choose a problem statement
-                </p>
-              </>
-            )}
+            <div className="flex min-h-[105px] items-center justify-center">
+              <p className="text-center text-lg font-semibold text-white">
+                {team.selected_problem ? 'Selected' : 'Not selected'}
+              </p>
+            </div>
           </div>
 
-          {/* Repository */}
+          {/* Repository + Feedback */}
           <div className="rounded-2xl border border-white/10 bg-[#111827] p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                Repository
-              </p>
-              <Link
-                to="/repository-feedback"
-                className="text-[11px] text-gray-400 hover:text-white"
-              >
-                Manage
-              </Link>
-            </div>
+            <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
+              Workspace
+            </p>
 
-            {team.repository_url ? (
-              <>
-                <div className="mt-3 flex items-center gap-1.5 text-lg font-semibold text-emerald-400">
-                  <CheckCircle2 size={18} />
-                  <span>Submitted</span>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => navigate('/repository-feedback')}
+                className="group rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <Settings2
+                    size={15}
+                    className="text-gray-400 transition-colors group-hover:text-white"
+                  />
+
+                  <ArrowRight
+                    size={13}
+                    className="text-gray-600 transition-colors group-hover:text-gray-300"
+                  />
                 </div>
 
-                <a
-                  href={team.repository_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 flex items-center gap-1 truncate text-xs text-gray-400 hover:text-white"
-                >
-                  <span className="truncate">{team.repository_url}</span>
-                  <ExternalLink size={12} className="shrink-0" />
-                </a>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-lg font-semibold text-gray-400">
-                  Pending
+                <p className="mt-3 text-sm font-medium text-white">
+                  Repository
                 </p>
 
-                <p className="mt-1 text-xs text-gray-500">
-                  Submit GitHub repo link
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Manage
                 </p>
-              </>
-            )}
-          </div>
+              </button>
 
-          {/* Feedback */}
-          <div className="rounded-2xl border border-white/10 bg-[#111827] p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                Feedback
-              </p>
-              <Link
-                to="/repository-feedback"
-                className="text-[11px] text-gray-400 hover:text-white"
+              <button
+                type="button"
+                onClick={() => navigate('/repository-feedback')}
+                className="group rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
               >
-                Manage
-              </Link>
-            </div>
+                <div className="flex items-center justify-between gap-2">
+                  <MessageSquare
+                    size={15}
+                    className="text-gray-400 transition-colors group-hover:text-white"
+                  />
 
-            {team.feedback ? (
-              <>
-                <div className="mt-3 flex items-center gap-1.5 text-lg font-semibold text-emerald-400">
-                  <CheckCircle2 size={18} />
-                  <span>{team.feedback.rating}/5 Stars</span>
+                  <ArrowRight
+                    size={13}
+                    className="text-gray-600 transition-colors group-hover:text-gray-300"
+                  />
                 </div>
 
-                <p className="mt-1 truncate text-xs text-gray-500">
-                  Feedback recorded
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="mt-3 text-lg font-semibold text-gray-400">
-                  Pending
+                <p className="mt-3 text-sm font-medium text-white">
+                  Feedback
                 </p>
 
-                <p className="mt-1 text-xs text-gray-500">
-                  Submit event feedback
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Manage
                 </p>
-              </>
-            )}
+              </button>
+            </div>
           </div>
 
-          {/* Rank & Score */}
+          {/* Rank */}
           <div className="rounded-2xl border border-white/10 bg-[#111827] p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-start justify-between gap-3">
               <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
                 Rank
               </p>
-              <Link
-                to="/leaderboard"
-                className="text-[11px] text-gray-400 hover:text-white"
+
+              <button
+                type="button"
+                onClick={() => navigate('/leaderboard')}
+                className="text-xs font-medium text-[#8fa8ca] transition-colors hover:text-white"
               >
                 Board
-              </Link>
+              </button>
             </div>
 
-            <p className="mt-3 text-lg font-semibold text-white">
-              {leaderboardLoaded && teamRank !== null
-                ? `#${teamRank}`
-                : 'Not ranked yet'}
-            </p>
+            <div className="flex min-h-[105px] flex-col items-center justify-center">
+              <p className="text-center text-lg font-semibold text-white">
+                —
+              </p>
 
-            <p className="mt-1 text-xs text-gray-500">
-              {teamScore !== null ? `Score: ${teamScore} pts` : (activeRound ? activeRound.name : 'No active round')}
-            </p>
+              <p className="mt-1 text-center text-xs text-gray-500">
+                Leaderboard not started
+              </p>
+            </div>
           </div>
         </div>
 
@@ -367,111 +365,91 @@ export default function Dashboard() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                  Hackathon Milestones
+                  Hackathon Progress
                 </p>
 
                 <h2 className="mt-2 text-xl font-semibold text-white">
-                  Your Team Progress
+                  Your team workspace
                 </h2>
               </div>
 
-              <div className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400">
-                {activeRound
-                  ? `Round ${activeRound.round_number}: ${activeRound.name}`
-                  : 'No active round'}
-              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/leaderboard')}
+                className="flex items-center gap-2 rounded-lg border border-white/10 px-3 py-1.5 text-xs text-gray-400 transition-colors hover:border-white/20 hover:text-white"
+              >
+                Round 1
+                <ArrowRight size={13} />
+              </button>
             </div>
 
-            {/* Overall Progress Bar */}
+            {/* Overall progress */}
             <div className="mt-8">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs text-gray-500">
-                  Deliverables completed ({completedCount} of 4)
+                  Overall progress
                 </span>
 
-                <span className="text-xs font-medium text-white">
-                  {progressPercent}%
+                <span className="text-xs font-semibold text-white">
+                  {progressPercentage}%
                 </span>
               </div>
 
               <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
                 <div
                   className="h-full rounded-full bg-white transition-all duration-500"
-                  style={{ width: `${progressPercent}%` }}
+                  style={{
+                    width: `${progressPercentage}%`,
+                  }}
                 />
+              </div>
+
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[11px] text-gray-600">
+                  {completedCount} of 4 milestones completed
+                </span>
+
+                {completedCount === 4 && (
+                  <span className="text-[11px] font-medium text-emerald-400">
+                    All milestones completed
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* 4 Milestones */}
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Link
-                to="/problems"
-                className="rounded-xl border border-white/10 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">Problem</p>
-                  {team.selected_problem ? (
-                    <CheckCircle2 size={15} className="text-emerald-400" />
-                  ) : (
-                    <Clock3 size={15} className="text-gray-500" />
-                  )}
-                </div>
+            {/* 2 × 2 milestone grid */}
+            <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ProgressItem
+                title="Problem Selection"
+                completed={problemCompleted}
+                completedText="Selected"
+                pendingText="Pending"
+                icon={CheckCircle2}
+              />
 
-                <p className="mt-2 text-sm font-medium text-white">
-                  {team.selected_problem ? 'Selected' : 'Pending'}
-                </p>
-              </Link>
+              <ProgressItem
+                title="Group Photo"
+                completed={groupPhotoCompleted}
+                completedText="Uploaded"
+                pendingText="Pending"
+                icon={ImageIcon}
+              />
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">Group Photo</p>
-                  {team.group_photo_path ? (
-                    <ImageIcon size={15} className="text-emerald-400" />
-                  ) : (
-                    <Clock3 size={15} className="text-gray-500" />
-                  )}
-                </div>
+              <ProgressItem
+                title="GitHub Repository"
+                completed={repositoryCompleted}
+                completedText="Submitted"
+                pendingText="Pending"
+                icon={GitBranch}
+              />
 
-                <p className="mt-2 text-sm font-medium text-white">
-                  {team.group_photo_path ? 'Uploaded' : 'Pending'}
-                </p>
-              </div>
-
-              <Link
-                to="/repository-feedback"
-                className="rounded-xl border border-white/10 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">Repository</p>
-                  {team.repository_url ? (
-                    <GitBranch size={15} className="text-emerald-400" />
-                  ) : (
-                    <Clock3 size={15} className="text-gray-500" />
-                  )}
-                </div>
-
-                <p className="mt-2 text-sm font-medium text-white">
-                  {team.repository_url ? 'Submitted' : 'Pending'}
-                </p>
-              </Link>
-
-              <Link
-                to="/repository-feedback"
-                className="rounded-xl border border-white/10 bg-white/[0.02] p-4 transition-colors hover:bg-white/[0.04]"
-              >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">Feedback</p>
-                  {team.feedback ? (
-                    <MessageSquare size={15} className="text-emerald-400" />
-                  ) : (
-                    <Clock3 size={15} className="text-gray-500" />
-                  )}
-                </div>
-
-                <p className="mt-2 text-sm font-medium text-white">
-                  {team.feedback ? 'Submitted' : 'Pending'}
-                </p>
-              </Link>
+              <ProgressItem
+                title="Feedback"
+                completed={feedbackCompleted}
+                completedText="Submitted"
+                pendingText="Pending"
+                icon={MessageSquare}
+              />
             </div>
           </section>
 
@@ -489,7 +467,7 @@ export default function Dashboard() {
                   className="h-14 w-14 rounded-2xl object-cover"
                 />
               ) : (
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-base font-bold text-[#000000]">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-base font-bold text-[#111827]">
                   {team.team_name
                     .split(' ')
                     .map((word) => word[0])
@@ -505,7 +483,7 @@ export default function Dashboard() {
                 </h2>
 
                 <p className="mt-1 truncate text-xs text-gray-500">
-                  {team.college_name}
+                  {team.team_code}
                 </p>
               </div>
             </div>
@@ -548,7 +526,7 @@ export default function Dashboard() {
           </section>
         </div>
 
-        {/* Group Photo Upload (Only shown if photo is not yet uploaded) */}
+        {/* Group Photo */}
         {!team.group_photo_path && (
           <div className="mt-5">
             <GroupPhotoUpload
@@ -563,10 +541,13 @@ export default function Dashboard() {
           <section className="mt-5 rounded-2xl border border-white/10 bg-[#111827] p-6">
             <div className="flex items-start gap-4">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05]">
-                <Trophy size={18} className="text-gray-300" />
+                <Trophy
+                  size={18}
+                  className="text-gray-300"
+                />
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
                   Selected Problem Statement
                 </p>
@@ -579,6 +560,7 @@ export default function Dashboard() {
                   {team.selected_problem.description}
                 </p>
               </div>
+              
             </div>
           </section>
         )}

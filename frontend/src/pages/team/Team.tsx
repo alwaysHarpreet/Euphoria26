@@ -126,7 +126,6 @@ export default function Team() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1400px]">
-        {/* Page heading */}
         <div className="mb-8">
           <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-gray-500">
             Team Workspace
@@ -151,11 +150,9 @@ export default function Team() {
           </p>
         </div>
 
-        {/* Team overview */}
-        <div className="grid items-start gap-5 lg:grid-cols-[1.4fr_0.6fr]">
-          {/* Team Profile */}
-          <section className="h-fit self-start rounded-2xl border border-white/10 bg-[#111827]">
-            <div className="border-b border-white/10 px-6 py-5">
+        <div className="grid gap-5 lg:grid-cols-[1.4fr_0.6fr]">
+          <section className="rounded-2xl border border-white/10 bg-[#111827]">
+            <div className="border-b border-white/10 p-6">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/[0.05]">
                   <Users size={19} className="text-gray-300" />
@@ -188,13 +185,32 @@ export default function Team() {
 
               <InfoRow
                 icon={Mail}
-                label="Login Email"
+                label="Registered Email"
                 value={team.leader_email}
               />
+
+              <div className="flex items-center gap-4 px-6 py-4">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-gray-500">
+                  <CheckCircle2 size={17} strokeWidth={1.8} />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-gray-600">
+                    Status
+                  </p>
+
+                  <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/10 px-3 py-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
+
+                    <span className="text-xs text-gray-300">
+                      Active
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
-          {/* Team Identity */}
           <section className="rounded-2xl border border-white/10 bg-[#111827] p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-gray-500">
               Team Identity
@@ -233,9 +249,6 @@ export default function Team() {
           </section>
         </div>
 
-        {/* ========================================================= */}
-        {/* TEAM MEMBERS SECTION (4 TO 5 MEMBERS) */}
-        {/* ========================================================= */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#111827]">
           <div className="flex items-center justify-between border-b border-white/10 p-6">
             <div className="flex items-center gap-3">
@@ -296,10 +309,6 @@ export default function Team() {
                         {member.email}
                       </p>
 
-                      <p className="mt-1 text-xs text-gray-400">
-                        Reg. No. {member.registration_number}
-                      </p>
-
                       <p className="mt-2 text-xs leading-relaxed text-[#7183a0]">
                         {member.college}
                       </p>
@@ -311,7 +320,6 @@ export default function Team() {
           </div>
         </section>
 
-        {/* Selected problem */}
         <section className="mt-6 rounded-2xl border border-white/10 bg-[#111827]">
           <div className="border-b border-white/10 p-6">
             <div className="flex items-center gap-3">
@@ -376,7 +384,7 @@ interface InfoRowProps {
 
 function InfoRow({ icon: Icon, label, value }: InfoRowProps) {
   return (
-    <div className="flex items-center gap-4 px-6 py-3.5">
+    <div className="flex items-center gap-4 px-6 py-4">
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.04] text-gray-500">
         <Icon size={17} strokeWidth={1.8} />
       </div>

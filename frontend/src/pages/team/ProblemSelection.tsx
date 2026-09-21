@@ -3,7 +3,12 @@ import {
   Check,
   ChevronRight,
   Clock,
+  Download,
+  FileText,
   Lock,
+  Loader2,
+  Users,
+  X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 
@@ -16,6 +21,8 @@ interface Problem {
   id: number
   title: string
   description: string
+  requirements: string
+  expectations: string
   is_active: boolean
   created_at: string
   teams_selected: number
@@ -56,36 +63,48 @@ export default function ProblemSelection() {
 
   const [releaseAt, setReleaseAt] = useState<string | null>(null)
   const [clockSkewMs, setClockSkewMs] = useState<number>(0)
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(0)
+  const [remainingSeconds, setRemainingSeconds] =
+    useState<number>(0)
 
   const [problems, setProblems] = useState<Problem[]>([])
   const [team, setTeam] = useState<Team | null>(null)
 
+  const [viewingProblem, setViewingProblem] =
+    useState<Problem | null>(null)
+
+  const [confirmingProblem, setConfirmingProblem] =
+    useState<Problem | null>(null)
+
   const [loading, setLoading] = useState(true)
-  const [selectingId, setSelectingId] = useState<number | null>(null)
+  const [selectingId, setSelectingId] =
+    useState<number | null>(null)
+
+  const [downloadingId, setDownloadingId] =
+    useState<number | null>(null)
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   const socketRef = useRef<WebSocket | null>(null)
 
-  // Fetch Team profile
   const fetchTeam = useCallback(async () => {
     try {
       const response = await api.get<Team>('/teams/me')
       setTeam(response.data)
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to load team data:', err)
     }
   }, [])
 
-  // Fetch problem statements
   const fetchProblems = useCallback(async () => {
     try {
       const response = await api.get<Problem[]>('/problems')
       setProblems(response.data)
     } catch (err: any) {
-      console.error('Failed to load problem statements:', err)
+      console.error(
+        'Failed to load problem statements:',
+        err,
+      )
 
       if (err?.response?.status === 403) {
         setReleaseStatus('not_started')
@@ -98,16 +117,19 @@ export default function ProblemSelection() {
     }
   }, [])
 
-  // Check release status from server
   const fetchReleaseStatus = useCallback(async () => {
     try {
-      const response = await api.get<ReleaseStatusResponse>(
-        '/problems/status',
-      )
+      const response =
+        await api.get<ReleaseStatusResponse>(
+          '/problems/status',
+        )
 
       const data = response.data
 
-      const serverTimestamp = new Date(data.server_time).getTime()
+      const serverTimestamp = new Date(
+        data.server_time,
+      ).getTime()
+
       const localTimestamp = Date.now()
       const skew = serverTimestamp - localTimestamp
 
@@ -115,13 +137,23 @@ export default function ProblemSelection() {
       setReleaseStatus(data.status)
       setReleaseAt(data.release_at)
 
-      if (data.status === 'countdown' && data.release_at) {
-        const targetTime = new Date(data.release_at).getTime()
-        const currentServerTime = Date.now() + skew
+      if (
+        data.status === 'countdown' &&
+        data.release_at
+      ) {
+        const targetTime = new Date(
+          data.release_at,
+        ).getTime()
+
+        const currentServerTime =
+          Date.now() + skew
 
         const diff = Math.max(
           0,
-          Math.floor((targetTime - currentServerTime) / 1000),
+          Math.floor(
+            (targetTime - currentServerTime) /
+              1000,
+          ),
         )
 
         setRemainingSeconds(diff)
@@ -131,12 +163,14 @@ export default function ProblemSelection() {
       } else {
         setRemainingSeconds(0)
       }
-    } catch (err: any) {
-      console.error('Failed to fetch problem release status:', err)
+    } catch (err) {
+      console.error(
+        'Failed to fetch problem release status:',
+        err,
+      )
     }
   }, [fetchProblems])
 
-  // Initial load
   useEffect(() => {
     const initialize = async () => {
       setLoading(true)
@@ -153,14 +187,15 @@ export default function ProblemSelection() {
     initialize()
   }, [fetchTeam, fetchReleaseStatus])
 
-  // WebSocket for real-time release state changes
   useEffect(() => {
     let socket: WebSocket | null = null
     let reconnectTimer: number | undefined
     let isStopped = false
 
     const connect = () => {
-      if (isStopped) return
+      if (isStopped) {
+        return
+      }
 
       const baseWs =
         api.defaults.baseURL
@@ -168,7 +203,7 @@ export default function ProblemSelection() {
           .replace(/^https:/, 'wss:') ||
         'ws://127.0.0.1:8000'
 
-      const wsUrl = `${baseWs}/ws/problems/release`
+      const wsUrl = `${baseWs}/problems/ws/release`
 
       socket = new WebSocket(wsUrl)
       socketRef.current = socket
@@ -183,7 +218,8 @@ export default function ProblemSelection() {
             ).getTime()
 
             const localTimestamp = Date.now()
-            const skew = serverTimestamp - localTimestamp
+            const skew =
+              serverTimestamp - localTimestamp
 
             setClockSkewMs(skew)
             setReleaseStatus(data.status)
@@ -203,15 +239,22 @@ export default function ProblemSelection() {
               const diff = Math.max(
                 0,
                 Math.floor(
-                  (targetTime - currentServerTime) / 1000,
+                  (targetTime -
+                    currentServerTime) /
+                    1000,
                 ),
               )
 
               setRemainingSeconds(diff)
-            } else if (data.status === 'released') {
+            } else if (
+              data.status === 'released'
+            ) {
               setRemainingSeconds(0)
               fetchProblems()
-            } else if (data.status === 'not_started') {
+              fetchTeam()
+            } else if (
+              data.status === 'not_started'
+            ) {
               setRemainingSeconds(0)
               setProblems([])
             }
@@ -250,10 +293,11 @@ export default function ProblemSelection() {
       if (socket) {
         socket.close()
       }
-    }
-  }, [fetchProblems])
 
-  // Countdown timer
+      socketRef.current = null
+    }
+  }, [fetchProblems, fetchTeam])
+
   useEffect(() => {
     if (
       releaseStatus !== 'countdown' ||
@@ -273,7 +317,9 @@ export default function ProblemSelection() {
       const diff = Math.max(
         0,
         Math.floor(
-          (targetTime - currentServerTime) / 1000,
+          (targetTime -
+            currentServerTime) /
+            1000,
         ),
       )
 
@@ -281,18 +327,6 @@ export default function ProblemSelection() {
 
       if (diff <= 0) {
         clearInterval(timer)
-
-        /*
-         * Do NOT locally set the status to "released".
-         *
-         * The backend is the source of truth.
-         * Calling /problems/status causes the backend
-         * to check release_at and transition:
-         *
-         * countdown -> released
-         *
-         * once the release time has actually arrived.
-         */
         fetchReleaseStatus()
       }
     }, 1000)
@@ -305,7 +339,58 @@ export default function ProblemSelection() {
     fetchReleaseStatus,
   ])
 
-  // Handle problem selection
+  const handleDownloadPdf = async (
+    problem: Problem,
+  ) => {
+    try {
+      setDownloadingId(problem.id)
+      setError('')
+
+      const response = await api.get(
+        `/problems/${problem.id}/pdf`,
+        {
+          responseType: 'blob',
+        },
+      )
+
+      const blobUrl = window.URL.createObjectURL(
+        new Blob([response.data], {
+          type: 'application/pdf',
+        }),
+      )
+
+      const link = document.createElement('a')
+      link.href = blobUrl
+
+      const safeTitle = problem.title
+        .replace(/[^a-z0-9]+/gi, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 80)
+
+      link.download = `${
+        safeTitle || 'problem_statement'
+      }.pdf`
+
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (err: any) {
+      console.error(
+        'Failed to download problem PDF:',
+        err,
+      )
+
+      setError(
+        err?.response?.data?.detail ||
+          'Unable to download the problem statement PDF.',
+      )
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   const handleSelectProblem = async (
     problemId: number,
   ) => {
@@ -346,6 +431,9 @@ export default function ProblemSelection() {
             response.data.problem,
         }
       })
+
+      setViewingProblem(null)
+      setConfirmingProblem(null)
     } catch (err: any) {
       console.error(
         'Failed to select problem:',
@@ -358,6 +446,7 @@ export default function ProblemSelection() {
       )
 
       await fetchProblems()
+      await fetchTeam()
     } finally {
       setSelectingId(null)
     }
@@ -395,7 +484,6 @@ export default function ProblemSelection() {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-[1400px]">
-        {/* PAGE HEADER */}
         <div className="mb-8">
           <p className="mb-2 text-xs font-medium uppercase tracking-[0.14em] text-[#61718b]">
             Team Workspace
@@ -406,11 +494,11 @@ export default function ProblemSelection() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#7183a0]">
-            Review the available problem statements and select the one your team will work on.
+            Review the available problem statements
+            and select the one your team will work on.
           </p>
         </div>
 
-        {/* ERROR MESSAGE */}
         {error && (
           <div className="mb-5 rounded-xl border border-red-400/20 bg-red-400/[0.06] px-4 py-3">
             <p className="text-sm text-red-300">
@@ -419,7 +507,6 @@ export default function ProblemSelection() {
           </div>
         )}
 
-        {/* SUCCESS MESSAGE */}
         {success && (
           <div className="mb-5 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.06] px-4 py-3">
             <div className="flex items-center gap-2">
@@ -427,6 +514,7 @@ export default function ProblemSelection() {
                 size={16}
                 className="text-emerald-300"
               />
+
               <p className="text-sm text-emerald-200">
                 {success}
               </p>
@@ -434,9 +522,6 @@ export default function ProblemSelection() {
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* STATE 1: NOT YET RELEASED */}
-        {/* ========================================================= */}
         {releaseStatus === 'not_started' && (
           <WorkspaceCard className="my-8 mx-auto max-w-2xl p-10 text-center sm:p-14">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
@@ -455,11 +540,15 @@ export default function ProblemSelection() {
             </h2>
 
             <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-[#7183a0]">
-              Problem statements have not been revealed yet. Once the organizers start the release countdown, this page will update automatically in real-time.
+              Problem statements have not been
+              revealed yet. Once the organizers start
+              the release countdown, this page will
+              update automatically in real-time.
             </p>
 
             <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#111827] px-4 py-2">
               <span className="h-2 w-2 animate-pulse rounded-full bg-amber-400" />
+
               <span className="text-xs text-gray-300">
                 Awaiting Countdown
               </span>
@@ -467,9 +556,6 @@ export default function ProblemSelection() {
           </WorkspaceCard>
         )}
 
-        {/* ========================================================= */}
-        {/* STATE 2: COUNTDOWN RUNNING */}
-        {/* ========================================================= */}
         {releaseStatus === 'countdown' && (
           <WorkspaceCard className="my-8 mx-auto max-w-3xl p-8 text-center sm:p-12">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
@@ -487,9 +573,7 @@ export default function ProblemSelection() {
               Problem statement will be released in
             </h2>
 
-            {/* COUNTDOWN CLOCK */}
             <div className="mt-8 flex items-center justify-center gap-3 sm:gap-6">
-              {/* HOURS */}
               <div className="flex flex-col items-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[#111827] font-mono text-3xl font-bold text-white shadow-inner sm:h-28 sm:w-28 sm:text-5xl">
                   {formatUnit(hours)}
@@ -504,7 +588,6 @@ export default function ProblemSelection() {
                 :
               </span>
 
-              {/* MINUTES */}
               <div className="flex flex-col items-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[#111827] font-mono text-3xl font-bold text-white shadow-inner sm:h-28 sm:w-28 sm:text-5xl">
                   {formatUnit(minutes)}
@@ -519,7 +602,6 @@ export default function ProblemSelection() {
                 :
               </span>
 
-              {/* SECONDS */}
               <div className="flex flex-col items-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-[#111827] font-mono text-3xl font-bold text-white shadow-inner sm:h-28 sm:w-28 sm:text-5xl">
                   {formatUnit(seconds)}
@@ -532,17 +614,15 @@ export default function ProblemSelection() {
             </div>
 
             <p className="mt-8 text-xs text-[#7183a0]">
-              Problem statements will become visible and problem selection will unlock automatically at 00:00:00.
+              Problem statements will become visible and
+              problem selection will unlock automatically
+              at 00:00:00.
             </p>
           </WorkspaceCard>
         )}
 
-        {/* ========================================================= */}
-        {/* STATE 3: RELEASED */}
-        {/* ========================================================= */}
         {releaseStatus === 'released' && (
           <>
-            {/* CURRENT SELECTION */}
             {team?.selected_problem && (
               <WorkspaceCard className="mb-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -579,7 +659,6 @@ export default function ProblemSelection() {
               </WorkspaceCard>
             )}
 
-            {/* PROBLEMS GRID */}
             {problems.length === 0 ? (
               <WorkspaceCard className="p-10 text-center">
                 <p className="text-sm text-[#7183a0]">
@@ -598,39 +677,20 @@ export default function ProblemSelection() {
                       Boolean(team?.selected_problem) &&
                       !isSelected
 
-                    const isSelecting =
-                      selectingId === problem.id
-
                     return (
                       <ProblemStatementCard
                         key={problem.id}
                         number={index + 1}
                         title={problem.title}
-                        description={
-                          problem.description
-                        }
-                        isActive={
-                          problem.is_active
-                        }
+                        isActive={problem.is_active}
                         selectedCount={
                           problem.teams_selected
                         }
-                        capacity={
-                          problem.capacity
-                        }
-                        isSelected={
-                          isSelected
-                        }
-                        isLocked={
-                          isLocked
-                        }
-                        isSelecting={
-                          isSelecting
-                        }
-                        onSelect={() =>
-                          handleSelectProblem(
-                            problem.id,
-                          )
+                        capacity={problem.capacity}
+                        isSelected={isSelected}
+                        isLocked={isLocked}
+                        onView={() =>
+                          setViewingProblem(problem)
                         }
                       />
                     )
@@ -641,6 +701,344 @@ export default function ProblemSelection() {
           </>
         )}
       </div>
+
+      {viewingProblem && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 py-6"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget
+            ) {
+              setViewingProblem(null)
+            }
+          }}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#111827] shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="problem-details-title"
+          >
+            <div className="flex shrink-0 items-start justify-between gap-5 border-b border-white/10 px-6 py-5 sm:px-8">
+              <div className="min-w-0">
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#64748b]">
+                  Problem Statement
+                </p>
+
+                <h2
+                  id="problem-details-title"
+                  className="mt-2 text-xl font-semibold leading-7 text-white sm:text-2xl"
+                >
+                  {viewingProblem.title}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setViewingProblem(null)
+                }
+                className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-white/[0.05] hover:text-white"
+                aria-label="Close problem statement"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto px-6 py-6 sm:px-8">
+              <ProblemSection
+                title="Description"
+                content={viewingProblem.description}
+              />
+
+              <ProblemSection
+                title="Requirements"
+                content={viewingProblem.requirements}
+              />
+
+              <ProblemSection
+                title="Expectations"
+                content={viewingProblem.expectations}
+              />
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                <MetaCard
+                  icon={Users}
+                  label="Team Selection"
+                  value={`${viewingProblem.teams_selected}/${viewingProblem.capacity}`}
+                />
+
+                <MetaCard
+                  icon={FileText}
+                  label="Status"
+                  value={
+                    viewingProblem.is_active
+                      ? 'Active'
+                      : 'Inactive'
+                  }
+                />
+
+                <MetaCard
+                  icon={Check}
+                  label="Selection"
+                  value={
+                    team?.selected_problem?.id ===
+                    viewingProblem.id
+                      ? 'Selected'
+                      : 'Available'
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-col gap-3 border-t border-white/10 px-6 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+              <button
+                type="button"
+                onClick={() =>
+                  handleDownloadPdf(viewingProblem)
+                }
+                disabled={
+                  downloadingId === viewingProblem.id
+                }
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {downloadingId ===
+                viewingProblem.id ? (
+                  <Loader2
+                    size={16}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Download size={16} />
+                )}
+
+                {downloadingId ===
+                viewingProblem.id
+                  ? 'Preparing PDF...'
+                  : 'Download PDF'}
+              </button>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setViewingProblem(null)
+                  }
+                  className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-medium text-gray-400 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-white"
+                >
+                  Close
+                </button>
+
+                {team?.selected_problem?.id ===
+                viewingProblem.id ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#202a3a] px-5 py-2.5 text-sm font-semibold text-[#8ca0bd]"
+                  >
+                    <Check size={16} />
+                    Problem Selected
+                  </button>
+                ) : team?.selected_problem ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="rounded-xl border border-[#293448] px-5 py-2.5 text-sm font-medium text-[#51627d]"
+                  >
+                    Selection Locked
+                  </button>
+                ) : viewingProblem.teams_selected >=
+                  viewingProblem.capacity ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="rounded-xl bg-red-500/[0.10] px-5 py-2.5 text-sm font-semibold text-red-300"
+                  >
+                    Selection Full
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirmingProblem(
+                        viewingProblem,
+                      )
+                    }
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[#f1f3f5]"
+                  >
+                    Select Problem Statement
+                    <ChevronRight size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmingProblem && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 px-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (
+              event.target === event.currentTarget &&
+              selectingId === null
+            ) {
+              setConfirmingProblem(null)
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-selection-title"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-[0.16em] text-[#64748b]">
+                  Confirm Selection
+                </p>
+
+                <h2
+                  id="confirm-selection-title"
+                  className="mt-2 text-xl font-semibold text-white"
+                >
+                  Select this problem?
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmingProblem(null)
+                }
+                disabled={selectingId !== null}
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-white/[0.05] hover:text-white disabled:opacity-40"
+                aria-label="Close confirmation"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <p className="text-sm font-medium leading-6 text-white">
+                {confirmingProblem.title}
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.05] p-4">
+              <p className="text-sm font-medium text-amber-200">
+                This selection is permanent.
+              </p>
+
+              <p className="mt-2 text-xs leading-5 text-amber-100/60">
+                Once your team confirms this problem
+                statement, it cannot be changed later.
+                Please make sure you have reviewed the
+                complete problem statement before continuing.
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmingProblem(null)
+                }
+                disabled={selectingId !== null}
+                className="rounded-xl border border-white/10 px-5 py-2.5 text-sm font-medium text-gray-400 transition hover:border-white/20 hover:bg-white/[0.04] hover:text-white disabled:opacity-40"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleSelectProblem(
+                    confirmingProblem.id,
+                  )
+                }
+                disabled={selectingId !== null}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-[#f1f3f5] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {selectingId ===
+                confirmingProblem.id ? (
+                  <>
+                    <Loader2
+                      size={16}
+                      className="animate-spin"
+                    />
+                    Confirming...
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    Confirm Selection
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
+  )
+}
+
+interface ProblemSectionProps {
+  title: string
+  content: string
+}
+
+function ProblemSection({
+  title,
+  content,
+}: ProblemSectionProps) {
+  return (
+    <section className="mb-7 last:mb-0">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#64748b]">
+        {title}
+      </h3>
+
+      <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-5">
+        <p className="whitespace-pre-wrap text-sm leading-7 text-[#9aa9bf]">
+          {content}
+        </p>
+      </div>
+    </section>
+  )
+}
+
+interface MetaCardProps {
+  icon: typeof Users
+  label: string
+  value: string
+}
+
+function MetaCard({
+  icon: Icon,
+  label,
+  value,
+}: MetaCardProps) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="flex items-center gap-2">
+        <Icon
+          size={15}
+          className="text-[#64748b]"
+        />
+
+        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#64748b]">
+          {label}
+        </span>
+      </div>
+
+      <p className="mt-2 text-sm font-medium text-gray-300">
+        {value}
+      </p>
+    </div>
   )
 }

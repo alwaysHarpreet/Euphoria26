@@ -8,7 +8,6 @@ import {
   Eye,
   FileText,
   Loader2,
-  Plus,
   RotateCcw,
   Search,
   Send,
@@ -148,10 +147,6 @@ export default function AdminProblems() {
   const [formError, setFormError] =
     useState('')
 
-  // ---------------------------------------------------------
-  // CSV
-  // ---------------------------------------------------------
-
   const [csvFile, setCsvFile] =
     useState<File | null>(null)
 
@@ -164,10 +159,6 @@ export default function AdminProblems() {
   const [csvError, setCsvError] =
     useState('')
 
-  // ---------------------------------------------------------
-  // RESET
-  // ---------------------------------------------------------
-
   const [resetStep, setResetStep] =
     useState<0 | 1 | 2>(0)
 
@@ -176,10 +167,6 @@ export default function AdminProblems() {
 
   const [resetError, setResetError] =
     useState('')
-
-  // ---------------------------------------------------------
-  // PROBLEM RELEASE
-  // ---------------------------------------------------------
 
   const [releaseStatus, setReleaseStatus] =
     useState<ReleaseStatus | null>(null)
@@ -198,10 +185,6 @@ export default function AdminProblems() {
 
   const [serverOffset, setServerOffset] =
     useState(0)
-
-  // ---------------------------------------------------------
-  // FETCH PROBLEMS
-  // ---------------------------------------------------------
 
   useEffect(() => {
     const fetchProblems = async () => {
@@ -233,10 +216,6 @@ export default function AdminProblems() {
 
     fetchProblems()
   }, [search])
-
-  // ---------------------------------------------------------
-  // FETCH RELEASE STATUS
-  // ---------------------------------------------------------
 
   const fetchReleaseStatus = async () => {
     try {
@@ -296,10 +275,6 @@ export default function AdminProblems() {
     fetchReleaseStatus()
   }, [])
 
-  // ---------------------------------------------------------
-  // SERVER-SYNCHRONIZED COUNTDOWN
-  // ---------------------------------------------------------
-
   useEffect(() => {
     if (
       releaseStatus?.problem_release_status !==
@@ -345,8 +320,6 @@ export default function AdminProblems() {
     serverOffset,
   ])
 
-  // Poll the backend while countdown is active.
-  // The backend remains the source of truth.
   useEffect(() => {
     if (
       releaseStatus?.problem_release_status !==
@@ -367,17 +340,6 @@ export default function AdminProblems() {
   }, [
     releaseStatus?.problem_release_status,
   ])
-
-  // ---------------------------------------------------------
-  // CREATE / EDIT
-  // ---------------------------------------------------------
-
-  const openCreate = () => {
-    setEditingProblem(null)
-    setForm(emptyForm)
-    setFormError('')
-    setFormOpen(true)
-  }
 
   const openEdit = (
     problem: Problem,
@@ -475,10 +437,6 @@ export default function AdminProblems() {
     }
   }
 
-  // ---------------------------------------------------------
-  // CSV UPLOAD
-  // ---------------------------------------------------------
-
   const uploadCsv = async () => {
     if (!csvFile) {
       setCsvError(
@@ -557,10 +515,6 @@ export default function AdminProblems() {
     }
   }
 
-  // ---------------------------------------------------------
-  // RESET ALL PROBLEMS
-  // ---------------------------------------------------------
-
   const resetProblemStatements =
     async () => {
       try {
@@ -593,10 +547,6 @@ export default function AdminProblems() {
         setResetting(false)
       }
     }
-
-  // ---------------------------------------------------------
-  // RELEASE CONTROLS
-  // ---------------------------------------------------------
 
   const startCountdown =
     async () => {
@@ -716,8 +666,6 @@ export default function AdminProblems() {
   return (
     <AdminLayout>
       <div className="mx-auto max-w-[1400px]">
-
-        {/* Header */}
         <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-gray-600">
@@ -734,8 +682,6 @@ export default function AdminProblems() {
           </div>
 
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap lg:w-auto">
-
-            {/* Search */}
             <div className="relative w-full sm:w-72">
               <Search
                 size={17}
@@ -757,7 +703,6 @@ export default function AdminProblems() {
               />
             </div>
 
-            {/* Choose CSV */}
             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111827] px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:border-white/20 hover:bg-white/[0.05] hover:text-white">
               <Upload size={16} />
 
@@ -773,8 +718,7 @@ export default function AdminProblems() {
                 className="hidden"
                 onChange={(event) => {
                   setCsvFile(
-                    event.target
-                      .files?.[0] ??
+                    event.target.files?.[0] ??
                       null,
                   )
                   setCsvMessage('')
@@ -783,7 +727,6 @@ export default function AdminProblems() {
               />
             </label>
 
-            {/* Upload CSV */}
             <button
               type="button"
               onClick={uploadCsv}
@@ -805,7 +748,6 @@ export default function AdminProblems() {
               Upload CSV
             </button>
 
-            {/* Reset Problems */}
             <button
               type="button"
               onClick={() => {
@@ -819,28 +761,12 @@ export default function AdminProblems() {
 
               Reset Problems
             </button>
-
-            {/* Add Problem */}
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-[#000000] transition hover:bg-gray-200"
-            >
-              <Plus size={16} />
-
-              Add problem
-            </button>
           </div>
         </div>
-
-        {/* -------------------------------------------------
-            PROBLEM RELEASE CONTROL
-        ------------------------------------------------- */}
 
         <div className="mb-6 overflow-hidden rounded-2xl border border-white/10 bg-[#111827]">
           <div className="border-b border-white/[0.06] px-6 py-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-
               <div>
                 <div className="flex items-center gap-2">
                   <Timer
@@ -879,8 +805,6 @@ export default function AdminProblems() {
           </div>
 
           <div className="grid gap-5 p-6 lg:grid-cols-[1fr_auto]">
-
-            {/* Status */}
             <div>
               {isCountdown ? (
                 <div>
@@ -935,9 +859,7 @@ export default function AdminProblems() {
               )}
             </div>
 
-            {/* Controls */}
             <div className="flex min-w-[280px] flex-col gap-3">
-
               {!isReleased && (
                 <div>
                   <label className="text-xs text-gray-500">
@@ -951,12 +873,9 @@ export default function AdminProblems() {
                       value={
                         durationSeconds
                       }
-                      onChange={(
-                        event,
-                      ) =>
+                      onChange={(event) =>
                         setDurationSeconds(
-                          event.target
-                            .value,
+                          event.target.value,
                         )
                       }
                       disabled={
@@ -1002,9 +921,7 @@ export default function AdminProblems() {
               {isCountdown && (
                 <button
                   type="button"
-                  onClick={
-                    releaseNow
-                  }
+                  onClick={releaseNow}
                   disabled={
                     releaseLoading
                   }
@@ -1026,17 +943,13 @@ export default function AdminProblems() {
               {!isNotStarted && (
                 <button
                   type="button"
-                  onClick={
-                    resetRelease
-                  }
+                  onClick={resetRelease}
                   disabled={
                     releaseLoading
                   }
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 px-4 py-2.5 text-sm text-gray-400 transition hover:bg-white/[0.05] hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  <RotateCcw
-                    size={15}
-                  />
+                  <RotateCcw size={15} />
 
                   Reset release
                 </button>
@@ -1045,21 +958,18 @@ export default function AdminProblems() {
           </div>
         </div>
 
-        {/* CSV success */}
         {csvMessage && (
           <div className="mb-4 rounded-xl border border-emerald-400/20 bg-emerald-400/[0.05] px-4 py-3 text-sm text-emerald-300">
             {csvMessage}
           </div>
         )}
 
-        {/* CSV error */}
         {csvError && (
           <div className="mb-4 rounded-xl border border-red-400/20 bg-red-400/[0.05] px-4 py-3 text-sm text-red-300">
             {csvError}
           </div>
         )}
 
-        {/* Problems table */}
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111827]">
           {loading ? (
             <div className="flex min-h-[320px] items-center justify-center">
@@ -1127,26 +1037,16 @@ export default function AdminProblems() {
                           </p>
 
                           <p className="mt-1 truncate text-xs text-gray-500">
-                            {
-                              problem.description
-                            }
+                            {problem.description}
                           </p>
                         </td>
 
                         <td className="px-6 py-4 text-gray-400">
-                          {
-                            problem.teams_selected
-                          }{' '}
-                          /{' '}
-                          {
-                            problem.capacity
-                          }
+                          {problem.teams_selected} / {problem.capacity}
                         </td>
 
                         <td className="px-6 py-4 text-gray-400">
-                          {
-                            problem.available_slots
-                          }
+                          {problem.available_slots}
                         </td>
 
                         <td className="px-6 py-4">
@@ -1165,7 +1065,6 @@ export default function AdminProblems() {
 
                         <td className="px-6 py-4 text-right">
                           <div className="flex justify-end gap-2">
-
                             <button
                               type="button"
                               onClick={() =>
@@ -1191,7 +1090,6 @@ export default function AdminProblems() {
                               <Edit3 size={14} />
                               Edit
                             </button>
-
                           </div>
                         </td>
                       </tr>
@@ -1204,7 +1102,6 @@ export default function AdminProblems() {
         </div>
       </div>
 
-      {/* First Reset Confirmation */}
       {resetStep === 1 && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 px-4"
@@ -1272,7 +1169,6 @@ export default function AdminProblems() {
         </div>
       )}
 
-      {/* Final Reset Confirmation */}
       {resetStep === 2 && (
         <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 px-4"
@@ -1348,7 +1244,6 @@ export default function AdminProblems() {
         </div>
       )}
 
-      {/* Problem Details */}
       {selectedProblem && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
@@ -1378,9 +1273,7 @@ export default function AdminProblems() {
                   id="problem-details-title"
                   className="mt-2 text-xl font-semibold text-white"
                 >
-                  {
-                    selectedProblem.title
-                  }
+                  {selectedProblem.title}
                 </h3>
               </div>
 
@@ -1397,9 +1290,7 @@ export default function AdminProblems() {
             </div>
 
             <p className="mt-6 whitespace-pre-wrap text-sm leading-6 text-gray-400">
-              {
-                selectedProblem.description
-              }
+              {selectedProblem.description}
             </p>
 
             {selectedProblem.requirements && (
@@ -1409,9 +1300,7 @@ export default function AdminProblems() {
                 </p>
 
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-400">
-                  {
-                    selectedProblem.requirements
-                  }
+                  {selectedProblem.requirements}
                 </p>
               </div>
             )}
@@ -1423,9 +1312,7 @@ export default function AdminProblems() {
                 </p>
 
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-400">
-                  {
-                    selectedProblem.expectations
-                  }
+                  {selectedProblem.expectations}
                 </p>
               </div>
             )}
@@ -1454,7 +1341,6 @@ export default function AdminProblems() {
         </div>
       )}
 
-      {/* Add/Edit Problem */}
       {formOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 px-4 py-8"
@@ -1479,9 +1365,7 @@ export default function AdminProblems() {
                 </p>
 
                 <h3 className="mt-2 text-xl font-semibold text-white">
-                  {editingProblem
-                    ? 'Edit problem'
-                    : 'Add problem'}
+                  Edit problem
                 </h3>
               </div>
 
@@ -1496,7 +1380,6 @@ export default function AdminProblems() {
             </div>
 
             <div className="mt-6 space-y-4">
-
               <label className="block">
                 <span className="text-xs text-gray-500">
                   Title
@@ -1509,8 +1392,7 @@ export default function AdminProblems() {
                       (current) => ({
                         ...current,
                         title:
-                          event.target
-                            .value,
+                          event.target.value,
                       }),
                     )
                   }
@@ -1526,16 +1408,13 @@ export default function AdminProblems() {
                 </span>
 
                 <textarea
-                  value={
-                    form.description
-                  }
+                  value={form.description}
                   onChange={(event) =>
                     setForm(
                       (current) => ({
                         ...current,
                         description:
-                          event.target
-                            .value,
+                          event.target.value,
                       }),
                     )
                   }
@@ -1550,16 +1429,13 @@ export default function AdminProblems() {
                 </span>
 
                 <textarea
-                  value={
-                    form.requirements
-                  }
+                  value={form.requirements}
                   onChange={(event) =>
                     setForm(
                       (current) => ({
                         ...current,
                         requirements:
-                          event.target
-                            .value,
+                          event.target.value,
                       }),
                     )
                   }
@@ -1574,16 +1450,13 @@ export default function AdminProblems() {
                 </span>
 
                 <textarea
-                  value={
-                    form.expectations
-                  }
+                  value={form.expectations}
                   onChange={(event) =>
                     setForm(
                       (current) => ({
                         ...current,
                         expectations:
-                          event.target
-                            .value,
+                          event.target.value,
                       }),
                     )
                   }
@@ -1595,16 +1468,13 @@ export default function AdminProblems() {
               <label className="flex items-center gap-3 text-sm text-gray-400">
                 <input
                   type="checkbox"
-                  checked={
-                    form.is_active
-                  }
+                  checked={form.is_active}
                   onChange={(event) =>
                     setForm(
                       (current) => ({
                         ...current,
                         is_active:
-                          event.target
-                            .checked,
+                          event.target.checked,
                       }),
                     )
                   }
@@ -1642,9 +1512,7 @@ export default function AdminProblems() {
                   />
                 )}
 
-                {editingProblem
-                  ? 'Save changes'
-                  : 'Create problem'}
+                Save changes
               </button>
             </div>
           </form>

@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.problem import ProblemStatement
 from app.models.team import Team
 from app.models.team_member import TeamMember
 from app.routers.dependencies import get_current_admin
@@ -56,7 +57,19 @@ def get_admin_teams(
     current_admin=Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    statement = select(Team)
+    statement = (
+        select(
+            Team,
+            ProblemStatement.title.label(
+                "selected_problem_title"
+            ),
+        )
+        .outerjoin(
+            ProblemStatement,
+            ProblemStatement.id
+            == Team.selected_problem_id,
+        )
+    )
 
     if search:
         search_pattern = f"%{search.strip()}%"
@@ -67,16 +80,29 @@ def get_admin_teams(
             | (Team.college_name.ilike(search_pattern))
             | (Team.leader_name.ilike(search_pattern))
             | (Team.leader_email.ilike(search_pattern))
+            | (
+                ProblemStatement.title.ilike(
+                    search_pattern
+                )
+            )
         )
 
-    statement = statement.order_by(Team.team_name)
+    statement = statement.order_by(
+        Team.team_name
+    )
 
-    teams = db.scalars(statement).all()
+    rows = db.execute(statement).all()
 
     response = []
 
-    for team in teams:
-        team_data = AdminTeamResponse.model_validate(team)
+    for team, selected_problem_title in rows:
+        team_data = AdminTeamResponse.model_validate(
+            team
+        )
+
+        team_data.selected_problem_title = (
+            selected_problem_title
+        )
 
         if team.group_photo_path:
             team_data.group_photo_path = (
@@ -155,11 +181,17 @@ def import_teams_csv(
 
     rows = []
 
-    for row_number, raw_row in enumerate(reader, start=2):
+    for row_number, raw_row in enumerate(
+        reader,
+        start=2,
+    ):
         if None in raw_row:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Row {row_number} contains extra columns.",
+                detail=(
+                    f"Row {row_number} contains "
+                    "extra columns."
+                ),
             )
 
         row = {
@@ -186,17 +218,22 @@ def import_teams_csv(
             )
 
         try:
-            EMAIL_ADAPTER.validate_python(row["email"])
+            EMAIL_ADAPTER.validate_python(
+                row["email"]
+            )
         except ValidationError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    f"Row {row_number} has an invalid email: "
-                    f"{row['email']}"
+                    f"Row {row_number} has an invalid "
+                    f"email: {row['email']}"
                 ),
             )
 
-        if row["role"] not in {"Leader", "Member"}:
+        if row["role"] not in {
+            "Leader",
+            "Member",
+        }:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -211,10 +248,15 @@ def import_teams_csv(
     if not rows:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="CSV contains no participant records.",
+            detail=(
+                "CSV contains no participant records."
+            ),
         )
 
-    grouped: dict[str, list[dict[str, str]]] = {}
+    grouped: dict[
+        str,
+        list[dict[str, str]],
+    ] = {}
 
     for row in rows:
         grouped.setdefault(
@@ -261,7 +303,8 @@ def import_teams_csv(
 
         if len(team_names) != 1:
             errors.append(
-                f"Team {team_code} has inconsistent teamName values."
+                f"Team {team_code} has inconsistent "
+                "teamName values."
             )
 
         colleges = {
@@ -271,7 +314,8 @@ def import_teams_csv(
 
         if len(colleges) != 1:
             errors.append(
-                f"Team {team_code} has inconsistent collegeName values."
+                f"Team {team_code} has inconsistent "
+                "collegeName values."
             )
 
         passwords = {
@@ -281,15 +325,22 @@ def import_teams_csv(
 
         if len(passwords) != 1:
             errors.append(
-                f"Team {team_code} has inconsistent passwords."
+                f"Team {team_code} has inconsistent "
+                "passwords."
             )
 
         for row in team_rows:
-            registration_number = row["registrationNumber"].lower()
+            registration_number = (
+                row["registrationNumber"].lower()
+            )
 
-            if registration_number in registration_numbers:
+            if (
+                registration_number
+                in registration_numbers
+            ):
                 errors.append(
-                    "Duplicate registration number in CSV: "
+                    "Duplicate registration number "
+                    "in CSV: "
                     f"{row['registrationNumber']}"
                 )
 
@@ -301,7 +352,8 @@ def import_teams_csv(
 
             if email in emails:
                 errors.append(
-                    f"Duplicate email in CSV: {row['email']}"
+                    f"Duplicate email in CSV: "
+                    f"{row['email']}"
                 )
 
             emails.add(email)

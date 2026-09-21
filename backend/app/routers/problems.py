@@ -1,4 +1,7 @@
+import io
+import re
 from datetime import datetime, timezone
+from xml.sax.saxutils import escape
 
 from fastapi import (
     APIRouter,
@@ -7,6 +10,16 @@ from fastapi import (
     WebSocket,
     WebSocketDisconnect,
     status,
+)
+from fastapi.responses import StreamingResponse
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import (
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
 )
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -107,12 +120,8 @@ def get_problems(
 
     selected_counts = (
         select(
-            Team.selected_problem_id.label(
-                "problem_id"
-            ),
-            func.count(Team.id).label(
-                "teams_selected"
-            ),
+            Team.selected_problem_id.label("problem_id"),
+            func.count(Team.id).label("teams_selected"),
         )
         .where(
             Team.selected_problem_id.is_not(None)
@@ -170,9 +179,7 @@ def get_problems(
 )
 def select_problem(
     problem_id: int,
-    current_team: Team = Depends(
-        get_current_team
-    ),
+    current_team: Team = Depends(get_current_team),
     db: Session = Depends(get_db),
 ):
     event_setting = _get_or_create_event_settings(db)
@@ -225,11 +232,8 @@ def select_problem(
         )
 
     selected_count = db.scalar(
-        select(
-            func.count(Team.id)
-        ).where(
-            Team.selected_problem_id
-            == problem.id
+        select(func.count(Team.id)).where(
+            Team.selected_problem_id == problem.id
         )
     )
 
@@ -237,10 +241,7 @@ def select_problem(
         selected_count or 0
     )
 
-    if (
-        selected_count
-        >= settings.MAX_TEAMS_PER_PROBLEM
-    ):
+    if selected_count >= settings.MAX_TEAMS_PER_PROBLEM:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -275,6 +276,192 @@ def select_problem(
         ),
         teams_selected=new_count,
         capacity=settings.MAX_TEAMS_PER_PROBLEM,
+    )
+
+
+@router.get(
+    "/{problem_id}/pdf",
+)
+def download_problem_pdf(
+    problem_id: int,
+    current_team: Team = Depends(get_current_team),
+    db: Session = Depends(get_db),
+):
+    event_setting = _get_or_create_event_settings(db)
+
+    if event_setting.problem_release_status != "released":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Problem statements have not been released yet.",
+        )
+
+    problem = db.scalar(
+        select(ProblemStatement).where(
+            ProblemStatement.id == problem_id,
+            ProblemStatement.is_active.is_(True),
+        )
+    )
+
+    if problem is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Problem statement not found or inactive.",
+        )
+
+    buffer = io.BytesIO()
+
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title=problem.title,
+        author="HackOddsey",
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "ProblemTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=20,
+        leading=26,
+        alignment=TA_LEFT,
+        spaceAfter=14,
+    )
+
+    section_style = ParagraphStyle(
+        "ProblemSection",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=15,
+        textColor="#4B5563",
+        spaceBefore=12,
+        spaceAfter=7,
+    )
+
+    body_style = ParagraphStyle(
+        "ProblemBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10,
+        leading=16,
+        textColor="#374151",
+        spaceAfter=8,
+    )
+
+    meta_style = ParagraphStyle(
+        "ProblemMeta",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=13,
+        textColor="#6B7280",
+        spaceAfter=4,
+    )
+
+    def pdf_text(value: str) -> str:
+        return escape(value).replace(
+            "\n",
+            "<br/>",
+        )
+
+    story = []
+
+    story.append(
+        Paragraph(
+            pdf_text(problem.title),
+            title_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "HackOddsey Problem Statement",
+            meta_style,
+        )
+    )
+
+    story.append(Spacer(1, 8))
+
+    story.append(
+        Paragraph(
+            "Description",
+            section_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            pdf_text(problem.description),
+            body_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "Requirements",
+            section_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            pdf_text(problem.requirements),
+            body_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            "Expectations",
+            section_style,
+        )
+    )
+
+    story.append(
+        Paragraph(
+            pdf_text(problem.expectations),
+            body_style,
+        )
+    )
+
+    story.append(Spacer(1, 12))
+
+    story.append(
+        Paragraph(
+            f"Team selection capacity: "
+            f"{settings.MAX_TEAMS_PER_PROBLEM} teams",
+            meta_style,
+        )
+    )
+
+    document.build(story)
+
+    buffer.seek(0)
+
+    safe_title = re.sub(
+        r"[^a-zA-Z0-9]+",
+        "_",
+        problem.title,
+    ).strip("_")
+
+    filename = (
+        f"{safe_title[:80] or 'problem_statement'}.pdf"
+    )
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"'
+            )
+        },
     )
 
 

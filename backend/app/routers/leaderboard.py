@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -24,8 +24,110 @@ router = APIRouter(tags=["Leaderboard"])
 def get_leaderboard(
     request: Request,
     round_id: int | None = Query(default=None),
+    overall: bool = Query(default=False),
     db: Session = Depends(get_db),
 ):
+    # ============================================================
+    # OVERALL LEADERBOARD
+    # ============================================================
+    # Overall means the cumulative score of every submitted
+    # evaluation for each team across all rounds held so far.
+    #
+    # Example:
+    # Team A:
+    #   Round 1 = 80
+    #   Round 2 = 90
+    #   Overall = 170
+    #
+    # Only submitted evaluations with a non-null score are included.
+    # Therefore, future/uncompleted rounds automatically contribute
+    # nothing until an evaluation is submitted.
+    # ============================================================
+    if overall:
+        statement = (
+            select(
+                Team.id.label("team_id"),
+                Team.team_name,
+                Team.college_name,
+                Team.group_photo_path,
+                func.sum(Evaluation.score).label("total_score"),
+            )
+            .join(
+                Evaluation,
+                Evaluation.team_id == Team.id,
+            )
+            .where(
+                Evaluation.status == "submitted",
+                Evaluation.score.is_not(None),
+            )
+            .group_by(
+                Team.id,
+                Team.team_name,
+                Team.college_name,
+                Team.group_photo_path,
+            )
+            .order_by(
+                func.sum(Evaluation.score).desc(),
+                Team.team_name.asc(),
+                Team.id.asc(),
+            )
+        )
+
+        rows = db.execute(statement).all()
+
+        entries: list[LeaderboardEntry] = []
+        previous_score: int | None = None
+        current_rank = 0
+
+        for index, (
+            team_id,
+            team_name,
+            college_name,
+            group_photo_path,
+            total_score,
+        ) in enumerate(rows, start=1):
+            if total_score != previous_score:
+                current_rank = index
+                previous_score = total_score
+
+            group_photo_url = None
+
+            if group_photo_path:
+                group_photo_url = (
+                    str(request.base_url).rstrip("/")
+                    + "/uploads/"
+                    + group_photo_path
+                )
+
+            entries.append(
+                LeaderboardEntry(
+                    rank=current_rank,
+                    team_id=team_id,
+                    team_name=team_name,
+                    college_name=college_name,
+                    group_photo_url=group_photo_url,
+                    score=total_score,
+                    status="submitted",
+                )
+            )
+
+        updated_at = db.scalar(
+            select(func.max(Evaluation.updated_at)).where(
+                Evaluation.status == "submitted",
+                Evaluation.score.is_not(None),
+            )
+        )
+
+        return LeaderboardResponse(
+            round=None,
+            updated_at=updated_at,
+            entries=entries,
+        )
+
+    # ============================================================
+    # ROUND-SPECIFIC LEADERBOARD
+    # ============================================================
+
     if round_id is None:
         selected_round = db.scalar(
             select(Round)
@@ -70,6 +172,7 @@ def get_leaderboard(
     )
 
     rows = db.execute(statement).all()
+
     entries: list[LeaderboardEntry] = []
     previous_score: int | None = None
     current_rank = 0

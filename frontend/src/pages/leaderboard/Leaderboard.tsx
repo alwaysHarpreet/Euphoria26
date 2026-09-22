@@ -354,10 +354,6 @@ function LeaderboardContent() {
                 Overall
               </option>
 
-              <option value="">
-                Active round
-              </option>
-
               {rounds.map((round) => (
                 <option
                   key={round.id}
@@ -482,7 +478,7 @@ function LeaderboardContent() {
 
               <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111827]">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[700px] text-left text-sm">
+                  <table className="w-full min-w-[600px] text-left text-sm">
                     <thead className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-gray-600">
                       <tr>
                         <th className="w-20 px-6 py-4 font-medium">
@@ -491,10 +487,6 @@ function LeaderboardContent() {
 
                         <th className="px-6 py-4 font-medium">
                           Team
-                        </th>
-
-                        <th className="px-6 py-4 font-medium">
-                          College
                         </th>
 
                         <th className="w-56 px-6 py-4 font-medium">
@@ -637,11 +629,6 @@ function PodiumEntry({
         {entry.team_name}
       </p>
 
-      {/* COLLEGE */}
-      <p className="mt-1 max-w-full truncate text-center text-xs text-gray-500">
-        {entry.college_name}
-      </p>
-
       {/* SCORE */}
       <div className="mt-3 flex items-center gap-2">
         <Trophy
@@ -699,27 +686,23 @@ function RankingRow({
 }) {
   return (
     <tr className="transition hover:bg-white/[0.025]">
-      <td className="px-6 py-4 text-base font-semibold text-gray-300">
+      <td className="px-6 py-5 text-lg font-semibold text-gray-200">
         {entry.rank}
       </td>
 
-      <td className="px-6 py-4">
+      <td className="px-6 py-5">
         <div className="flex min-w-0 items-center gap-3">
           <Avatar entry={entry} />
 
-          <span className="truncate font-medium text-gray-200">
+          <span className="truncate text-base font-semibold text-gray-100 sm:text-lg">
             {entry.team_name}
           </span>
         </div>
       </td>
 
-      <td className="max-w-xs truncate px-6 py-4 text-gray-500">
-        {entry.college_name}
-      </td>
-
-      <td className="px-6 py-4">
+      <td className="px-6 py-5">
         <div className="flex items-center gap-3">
-          <span className="w-20 font-semibold text-gray-200">
+          <span className="w-24 text-base font-semibold text-gray-100 sm:text-lg">
             {entry.score}
             {isOverall ? ' total' : ' / 100'}
           </span>
